@@ -17,6 +17,12 @@ from app.services.stock_analyzer import StockAnalyzerService
 router = APIRouter()
 
 
+@router.get("/ticker-quotes")
+def get_market_ticker_quotes() -> Any:
+    """Get live market ticker data for Indian indexes, Indian stocks, global stocks, and global indexes."""
+    return YahooFinanceService.get_market_ticker_quotes()
+
+
 @router.get("/search", response_model=List[CompanySearchResult])
 def search_company(
     query: str = Query(..., min_length=1, description="Company symbol or name to search (e.g. AAPL, Tesla)")

@@ -78,3 +78,23 @@
 .glow-red {
   box-shadow: 0 0 25px rgba(239, 68, 68, 0.25);
 }
+
+/* Marquee Ticker Auto-Scroll */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 50s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}

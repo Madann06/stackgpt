@@ -4,17 +4,15 @@ services:
     container_name: stackgpt_postgres
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-stock_db}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: stock_db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - stackgpt_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-stock_db}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d stock_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,55 +23,38 @@ services:
       dockerfile: Dockerfile
     container_name: stackgpt_backend
     restart: always
+    environment:
+      - PROJECT_NAME=AI Stock Research Assistant Backend
+      - API_V1_STR=/api/v1
+      - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/stock_db
+      - SECRET_KEY=ai-stock-research-assistant-super-secret-key-change-in-production
+      - BACKEND_CORS_ORIGINS=["http://localhost","http://localhost:3000","http://localhost:80","http://127.0.0.1:3000"]
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - WEB_SEARCH_API_KEY=${WEB_SEARCH_API_KEY:-}
     ports:
       - "8000:8000"
-    environment:
-      - PROJECT_NAME=${PROJECT_NAME:-AI Stock Research Assistant Backend}
-      - API_V1_STR=${API_V1_STR:-/api/v1}
-      - SECRET_KEY=${SECRET_KEY:-ai-stock-research-assistant-super-secret-key-change-in-production}
-      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/stock_db}
-      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-["http://localhost:3000","http://localhost:5173","http://127.0.0.1:3000","http://localhost"]}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-      - WEB_SEARCH_API_KEY=${WEB_SEARCH_API_KEY:-}
-      - FINNHUB_API_KEY=${FINNHUB_API_KEY:-}
-      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY:-}
-      - NEWS_API_KEY=${NEWS_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
-      - chroma_data:/app/chroma_db
-      - ./backend/uploads:/app/uploads
-    networks:
-      - stackgpt_network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+      - backend_uploads:/app/uploads
+      - backend_chromadb:/app/chroma_db
 
   frontend:
     build:
       context: .
-      dockerfile: frontend/Dockerfile
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api/v1
     container_name: stackgpt_frontend
     restart: always
     ports:
       - "3000:80"
+      - "80:80"
     depends_on:
       - backend
-    networks:
-      - stackgpt_network
 
 volumes:
   postgres_data:
-    driver: local
-  chroma_data:
-    driver: local
-
-networks:
-  stackgpt_network:
-    driver: bridge
+  backend_uploads:
+  backend_chromadb:

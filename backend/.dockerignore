@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+sql_app.db
+uploads/*
+!uploads/.gitkeep
+chroma_db/
+.env
+.DS_Store

@@ -1,0 +1,15 @@
+from fastapi import APIRouter
+
+from app.api.v1.endpoints import auth, company, pdf, rag, chat
+
+api_router = APIRouter()
+
+api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+api_router.include_router(company.router, prefix="/company", tags=["Company & Stock Data"])
+api_router.include_router(company.router, prefix="/stock", tags=["Stock Data (Alias)"])
+api_router.include_router(pdf.router, prefix="/pdf", tags=["PDF Annual Report Processing"])
+api_router.include_router(rag.router, prefix="/rag", tags=["RAG Vector Search & Retrieval"])
+api_router.include_router(chat.router, prefix="/chat", tags=["AI Financial Chat & QA"])
+
+
+

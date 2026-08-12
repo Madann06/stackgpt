@@ -214,7 +214,7 @@ class YahooFinanceService:
             "1M": ("1mo", "1d"),
             "6M": ("6mo", "1d"),
             "1Y": ("1y", "1d"),
-            "ALL": ("max", "1wk")
+            "ALL": ("max", "1mo")
         }
         period, interval = tf_map.get(timeframe.upper(), ("1mo", "1d"))
 
@@ -233,14 +233,14 @@ class YahooFinanceService:
             seen_times = set()
 
             for index, row in df.iterrows():
-                # Lightweight charts time format: YYYY-MM-DD for daily/weekly, UTC Unix timestamp for intraday
+                # Lightweight charts time format: YYYY-MM-DD for daily/weekly/monthly, UTC Unix timestamp for intraday
                 if timeframe in ["1D", "1W"]:
                     time_val = int(index.timestamp())
                     time_str = index.strftime("%H:%M" if timeframe == "1D" else "%a %H:%M")
                     date_str = index.strftime("%d %b %Y, %H:%M")
                 else:
                     time_val = index.strftime("%Y-%m-%d")
-                    time_str = index.strftime("%b %d")
+                    time_str = index.strftime("%b %Y" if timeframe == "ALL" else "%b %d")
                     date_str = index.strftime("%d %b %Y")
 
                 if time_val in seen_times:
@@ -273,16 +273,17 @@ class YahooFinanceService:
         except Exception:
             base = 2940.50 if (symbol.endswith(".NS") or symbol.endswith(".BO")) else 229.35
             fallback_points = []
-            import math
             from datetime import datetime, timedelta
             now = datetime.now()
             for i in range(30):
                 d_time = now - timedelta(days=30 - i)
-                price = base * (0.92 + (i / 30.0) * 0.12 + (math.sin(i / 2) * 0.01))
+                # Realistic trend calculation without artificial sine wave distortion
+                trend = 0.95 + (i / 30.0) * 0.08 + ((i % 5 - 2) * 0.003)
+                price = base * trend
                 c_val = round(price, 2)
-                o_val = round(price * (0.995 + (i % 3) * 0.003), 2)
-                h_val = round(max(o_val, c_val) * 1.008, 2)
-                l_val = round(min(o_val, c_val) * 0.992, 2)
+                o_val = round(price * (0.996 + (i % 3) * 0.002), 2)
+                h_val = round(max(o_val, c_val) * 1.006, 2)
+                l_val = round(min(o_val, c_val) * 0.994, 2)
                 fallback_points.append({
                     "time": d_time.strftime("%Y-%m-%d") if timeframe not in ["1D", "1W"] else int(d_time.timestamp()),
                     "timestamp": f"Day {i+1}",

@@ -371,7 +371,6 @@ export const generateChartData = (basePrice, timeframe = '1M', isPositive = true
     const open = parseFloat((close * (0.995 + Math.random() * 0.01)).toFixed(2));
     const high = parseFloat((Math.max(open, close) + Math.random() * volatility * 0.5).toFixed(2));
     const low = parseFloat((Math.min(open, close) - Math.random() * volatility * 0.5).toFixed(2));
-    const ma20 = current * (1 + (Math.sin(i / 3) * 0.015));
     const volume = Math.floor(Math.random() * 15000000) + 10000000;
 
     const timeStrFormat = (timeframe === '1D' || timeframe === '1W') 
@@ -387,9 +386,17 @@ export const generateChartData = (basePrice, timeframe = '1M', isPositive = true
       open: open,
       high: high,
       low: low,
-      ma20: parseFloat(ma20.toFixed(2)),
+      ma20: close,
       volume: volume
     });
+  }
+
+  // Calculate actual rolling 20 Simple Moving Average
+  for (let idx = 0; idx < data.length; idx++) {
+    const windowStart = Math.max(0, idx - 19);
+    const windowSlice = data.slice(windowStart, idx + 1);
+    const avg = windowSlice.reduce((sum, item) => sum + item.close, 0) / windowSlice.length;
+    data[idx].ma20 = parseFloat(avg.toFixed(2));
   }
 
   return data;

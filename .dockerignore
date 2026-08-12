@@ -1,0 +1,48 @@
+# Node / Frontend Build Artifacts
+node_modules
+dist
+frontend/dist
+.vite
+.npm
+
+# Python Build & Cache Artifacts
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.coverage
+htmlcov
+*.egg-info
+.venv
+venv
+ENV
+
+# Database & SQLite files
+*.db
+*.sqlite3
+sql_app.db
+backend/sql_app.db
+
+# Environment & Secret files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+
+# Version Control & IDEs
+.git
+.gitignore
+.dockerignore
+.vscode
+.idea
+
+# Log & OS Files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db

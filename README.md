@@ -66,45 +66,6 @@ npm run dev
 
 ---
 
-## 🐳 Running with Docker Compose (Recommended)
-
-### 1. Prerequisites
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
-
-### 2. Configure Environment Variables
-Copy the template `.env.example` file to `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Optionally add your API credentials (`OPENAI_API_KEY`, `GEMINI_API_KEY`, etc.) inside `.env`.
-
-### 3. Build & Start Containers
-Run the single command to start the complete full-stack application (Frontend + Backend + PostgreSQL):
-
-```bash
-docker compose up --build
-```
-
-To run in detached (background) mode:
-```bash
-docker compose up -d --build
-```
-
-### 4. Application Endpoints
-- **Frontend UI**: [http://localhost:3000](http://localhost:3000)
-- **FastAPI Backend**: [http://localhost:8000](http://localhost:8000)
-- **Swagger API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **PostgreSQL Database**: `localhost:5432` (`stock_db`)
-
-### 5. Stop Containers
-```bash
-docker compose down
-```
-
----
-
 ## 📌 Repository Links
 
 - **GitHub Repository**: [https://github.com/Madann06/stackgpt.git](https://github.com/Madann06/stackgpt.git)

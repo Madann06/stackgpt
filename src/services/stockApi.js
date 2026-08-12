@@ -276,47 +276,6 @@ export const stockApi = {
     return MARKET_INDICES;
   },
 
-  async getMarketTickerQuotes() {
-    try {
-      const res = await api.get('/company/ticker-quotes');
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-        return res.data;
-      }
-    } catch (e) {
-      console.warn("Failed to fetch live ticker quotes, using market fallback:", e);
-    }
-    return [
-      { symbol: "^NSEI", name: "NIFTY 50", category: "INDIAN INDEXES", currency: "", price: 24850.20, change: 125.40, change_percent: 0.51, is_positive: true },
-      { symbol: "^BSESN", name: "SENSEX", category: "INDIAN INDEXES", currency: "", price: 81420.30, change: -210.20, change_percent: -0.26, is_positive: false },
-      { symbol: "^NSEBANK", name: "NIFTY BANK", category: "INDIAN INDEXES", currency: "", price: 52340.50, change: 310.15, change_percent: 0.60, is_positive: true },
-      { symbol: "^CNXIT", name: "NIFTY IT", category: "INDIAN INDEXES", currency: "", price: 41890.10, change: -145.80, change_percent: -0.35, is_positive: false },
-      { symbol: "NIFTY_MIDCAP_100.NS", name: "NIFTY MIDCAP 100", category: "INDIAN INDEXES", currency: "", price: 58920.75, change: 420.30, change_percent: 0.72, is_positive: true },
-      
-      { symbol: "RELIANCE.NS", name: "RELIANCE", category: "INDIAN STOCKS", currency: "₹", price: 1420.00, change: 15.70, change_percent: 1.12, is_positive: true },
-      { symbol: "TCS.NS", name: "TCS", category: "INDIAN STOCKS", currency: "₹", price: 3890.40, change: -16.40, change_percent: -0.42, is_positive: false },
-      { symbol: "INFY.NS", name: "INFY", category: "INDIAN STOCKS", currency: "₹", price: 1825.40, change: 22.10, change_percent: 1.23, is_positive: true },
-      { symbol: "HDFCBANK.NS", name: "HDFCBANK", category: "INDIAN STOCKS", currency: "₹", price: 1640.80, change: -8.50, change_percent: -0.51, is_positive: false },
-      { symbol: "ICICIBANK.NS", name: "ICICIBANK", category: "INDIAN STOCKS", currency: "₹", price: 1210.30, change: 11.20, change_percent: 0.93, is_positive: true },
-      { symbol: "SBIN.NS", name: "SBIN", category: "INDIAN STOCKS", currency: "₹", price: 845.60, change: 6.80, change_percent: 0.81, is_positive: true },
-      { symbol: "BHARTIARTL.NS", name: "BHARTIARTL", category: "INDIAN STOCKS", currency: "₹", price: 1560.20, change: 18.40, change_percent: 1.19, is_positive: true },
-      { symbol: "ITC.NS", name: "ITC", category: "INDIAN STOCKS", currency: "₹", price: 492.30, change: -2.10, change_percent: -0.42, is_positive: false },
-
-      { symbol: "AAPL", name: "AAPL", category: "GLOBAL STOCKS", currency: "$", price: 223.50, change: 1.85, change_percent: 0.84, is_positive: true },
-      { symbol: "NVDA", name: "NVDA", category: "GLOBAL STOCKS", currency: "$", price: 181.20, change: 3.80, change_percent: 2.14, is_positive: true },
-      { symbol: "MSFT", name: "MSFT", category: "GLOBAL STOCKS", currency: "$", price: 448.90, change: 2.30, change_percent: 0.51, is_positive: true },
-      { symbol: "AMZN", name: "AMZN", category: "GLOBAL STOCKS", currency: "$", price: 186.40, change: -1.20, change_percent: -0.64, is_positive: false },
-      { symbol: "TSLA", name: "TSLA", category: "GLOBAL STOCKS", currency: "$", price: 218.80, change: -3.40, change_percent: -1.53, is_positive: false },
-      { symbol: "GOOGL", name: "GOOGL", category: "GLOBAL STOCKS", currency: "$", price: 178.60, change: 1.40, change_percent: 0.79, is_positive: true },
-      { symbol: "META", name: "META", category: "GLOBAL STOCKS", currency: "$", price: 512.30, change: 6.80, change_percent: 1.34, is_positive: true },
-
-      { symbol: "^GSPC", name: "S&P 500", category: "GLOBAL INDEXES", currency: "", price: 5594.32, change: 23.90, change_percent: 0.43, is_positive: true },
-      { symbol: "^IXIC", name: "NASDAQ", category: "GLOBAL INDEXES", currency: "", price: 19732.10, change: 143.00, change_percent: 0.73, is_positive: true },
-      { symbol: "^DJI", name: "DOW JONES", category: "GLOBAL INDEXES", currency: "", price: 40842.12, change: -45.10, change_percent: -0.11, is_positive: false },
-      { symbol: "^FTSE", name: "FTSE 100", category: "GLOBAL INDEXES", currency: "", price: 8280.40, change: 12.30, change_percent: 0.15, is_positive: true },
-      { symbol: "^N225", name: "NIKKEI 225", category: "GLOBAL INDEXES", currency: "", price: 38150.20, change: 240.50, change_percent: 0.63, is_positive: true },
-    ];
-  },
-
   // 3. PDF Upload & RAG APIs
   async uploadPdf(file, onProgress) {
     const formData = new FormData();

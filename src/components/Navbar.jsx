@@ -16,7 +16,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from './SearchBar';
-import TopMarketTicker from './TopMarketTicker';
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -39,7 +38,21 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur-xl">
       {/* Top Market Ticker Bar */}
-      <TopMarketTicker />
+      <div className="hidden lg:flex items-center justify-between px-6 py-1 bg-slate-900/90 text-xs border-b border-slate-800/60 font-mono text-slate-400">
+        <div className="flex items-center gap-6 overflow-x-auto py-0.5">
+          <span className="flex items-center gap-1 text-blue-400 font-semibold uppercase tracking-wider text-[10px]">
+            <Sparkles className="w-3 h-3 animate-pulse" /> Live Market Ticker
+          </span>
+          <span className="text-slate-300">S&P 500 <span className="text-green-400 ml-1">5,594.32 (+0.43%)</span></span>
+          <span className="text-slate-300">NASDAQ <span className="text-green-400 ml-1">19,732.10 (+0.73%)</span></span>
+          <span className="text-slate-300">DOW JONES <span className="text-red-400 ml-1">40,842.12 (-0.11%)</span></span>
+          <span className="text-slate-300">US 10Y <span className="text-red-400 ml-1">3.89% (-1.02%)</span></span>
+        </div>
+        <div className="flex items-center gap-4 text-[11px] text-slate-400">
+          <span className="flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> AI Engine Online</span>
+          <span>Latency: 14ms</span>
+        </div>
+      </div>
 
       {/* Main Navbar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

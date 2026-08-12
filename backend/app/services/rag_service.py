@@ -4,9 +4,18 @@ import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-import chromadb
-from chromadb.config import Settings as ChromaSettings
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+try:
+    import chromadb
+    from chromadb.config import Settings as ChromaSettings
+except ImportError:
+    chromadb = None
+    ChromaSettings = None
+
+try:
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+except ImportError:
+    RecursiveCharacterTextSplitter = None
+
 from fastapi import HTTPException, status
 
 # Directory setup for persistent ChromaDB storage
@@ -24,6 +33,11 @@ _collection = None
 def get_chroma_collection():
     """Lazily initialize ChromaDB client and collection."""
     global _chroma_client, _collection
+    if chromadb is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ChromaDB vector database service is initializing or not installed."
+        )
     if _collection is not None:
         return _collection
 

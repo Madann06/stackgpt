@@ -102,10 +102,8 @@ const CompanyAnalysis = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-slate-100 flex flex-col selection:bg-blue-500 selection:text-white">
-      <Navbar />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <>
+      <div className="max-w-7xl w-full mx-auto space-y-8 pb-8">
         
         {/* If no ticker selected in URL, display CompanySelector browser screen */}
         {!activeSymbol ? (
@@ -220,7 +218,7 @@ const CompanyAnalysis = () => {
             )}
           </>
         )}
-      </main>
+      </div>
 
       {/* PDF Upload Modal */}
       <PDFUploadModal
@@ -230,7 +228,7 @@ const CompanyAnalysis = () => {
       />
 
       <Footer />
-    </div>
+    </>
   );
 };
 

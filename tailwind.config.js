@@ -8,19 +8,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#0F172A',
-        card: '#1E293B',
-        'card-hover': '#243347',
+        background: '#0B1220',
+        card: '#111827',
+        'card-hover': '#1F2937',
         primary: {
-          DEFAULT: '#3B82F6',
-          hover: '#2563EB',
-          light: '#60A5FA',
-          dark: '#1D4ED8',
+          DEFAULT: '#06B6D4',
+          hover: '#0891B2',
+          light: '#22D3EE',
+          dark: '#0E7490',
         },
         success: {
-          DEFAULT: '#22C55E',
-          light: '#4ADE80',
-          dark: '#16A34A',
+          DEFAULT: '#10B981',
+          light: '#34D399',
+          dark: '#059669',
         },
         warning: {
           DEFAULT: '#F59E0B',
@@ -31,6 +31,11 @@ export default {
           DEFAULT: '#EF4444',
           light: '#F87171',
           dark: '#DC2626',
+        },
+        neutral: {
+          DEFAULT: '#64748B',
+          light: '#94A3B8',
+          dark: '#475569',
         },
         accent: {
           purple: '#8B5CF6',

@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-import Navbar from '../components/Navbar';
 import SearchBar from '../components/SearchBar';
 import StockOverviewCard from '../components/StockOverviewCard';
 import RecommendationCard from '../components/RecommendationCard';
@@ -33,7 +32,7 @@ import DurationSelector from '../components/DurationSelector';
 import { stockApi } from '../services/stockApi';
 
 const Dashboard = () => {
-  const [featuredSymbol, setFeaturedSymbol] = useState('AAPL');
+  const [featuredSymbol, setFeaturedSymbol] = useState('RELIANCE.NS');
   const [stockData, setStockData] = useState(null);
   const [allStocks, setAllStocks] = useState([]);
   const [news, setNews] = useState([]);
@@ -89,60 +88,54 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-slate-100 flex flex-col selection:bg-blue-500 selection:text-white">
-      <Navbar />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <>
+      <div className="max-w-7xl w-full mx-auto space-y-8 pb-8">
         
         {/* Hero Welcome & Search Banner */}
         <motion.div
           initial={{ opacity: 0, y: -15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-slate-900 via-[#1E293B] to-slate-900 p-6 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden"
+          className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-card to-background p-6 rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden"
         >
           <div className="space-y-3 z-10">
             <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1 text-xs font-mono font-semibold px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30">
+              <span className="flex items-center gap-1 text-xs font-mono font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/30">
                 <Sparkles className="w-3.5 h-3.5" /> LIVE MARKET & RAG AI HUB
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100 tracking-tight">
-              AI Financial Intelligence Platform
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Indian Market Intelligence
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
-              Search live market tickers, analyze real-time financial ratios, or upload annual report PDFs to execute grounded RAG AI search.
+            <p className="text-xs sm:text-sm text-neutral-light max-w-xl">
+              Search live NSE/BSE tickers, analyze real-time financial ratios, or upload annual report PDFs to execute grounded RAG AI search.
             </p>
 
             <div className="pt-2 flex items-center gap-3">
               <button
                 onClick={() => setIsPdfModalOpen(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-600/30 transition-all flex items-center gap-2"
+                className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/30 transition-all flex items-center gap-2"
               >
                 <Upload className="w-4 h-4" /> Upload Report PDF
               </button>
             </div>
           </div>
-
-          <div className="w-full md:w-auto md:min-w-[320px] z-10">
-            <SearchBar placeholder="Search symbol (e.g. NVDA, TSLA)..." />
-          </div>
         </motion.div>
 
         {/* Ticker Switcher Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 font-mono text-xs no-scrollbar">
-          <span className="text-slate-500 text-[11px] uppercase font-bold shrink-0 mr-1">Quick Select:</span>
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 font-mono text-xs hide-scrollbar">
+          <span className="text-neutral-light text-[11px] uppercase font-bold shrink-0 mr-1">Quick Select:</span>
           {allStocks.map((s) => (
             <button
               key={s.symbol}
               onClick={() => setFeaturedSymbol(s.symbol)}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all shrink-0 ${
                 featuredSymbol === s.symbol
-                  ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/30 font-bold'
-                  : 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-700'
+                  ? 'bg-primary text-white border-primary shadow-lg shadow-primary/30 font-bold'
+                  : 'bg-card text-neutral-light border-white/5 hover:bg-white/5 hover:text-white'
               }`}
             >
-              <span>${s.symbol}</span>
-              <span className={`text-[10px] ${s.isPositive ? 'text-green-400' : 'text-red-400'}`}>
+              <span>{s.symbol}</span>
+              <span className={`text-[10px] ${s.isPositive ? 'text-success' : 'text-danger'}`}>
                 {s.isPositive ? '+' : ''}{s.changePercent}%
               </span>
             </button>
@@ -204,17 +197,15 @@ const Dashboard = () => {
                 )
               )}
 
-
-
               {/* Stock Chart Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-extrabold text-slate-100 flex items-center gap-2">
-                    <BarChart2 className="w-5 h-5 text-blue-400" /> Interactive Stock Chart
+                  <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
+                    <BarChart2 className="w-5 h-5 text-primary" /> Interactive Stock Chart
                   </h2>
                   <Link
                     to={`/company/${featuredSymbol}`}
-                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold"
+                    className="text-xs text-primary hover:text-primary-light flex items-center gap-1 font-semibold transition-colors"
                   >
                     Full Company Analysis <ChevronRight className="w-4 h-4" />
                   </Link>
@@ -233,7 +224,7 @@ const Dashboard = () => {
             </>
           )
         )}
-      </main>
+      </div>
 
       {/* PDF Upload Modal */}
       <PDFUploadModal
@@ -243,7 +234,7 @@ const Dashboard = () => {
       />
 
       <Footer />
-    </div>
+    </>
   );
 };
 

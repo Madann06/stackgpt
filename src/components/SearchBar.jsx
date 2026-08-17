@@ -23,19 +23,27 @@ const SearchBar = ({ placeholder = "Search stock symbol or company name (e.g. AA
   }, []);
 
   useEffect(() => {
-    if (!query.trim()) {
+    const q = query.trim();
+    if (!q || q.length < 2) {
       setResults([]);
       setIsOpen(false);
+      setIsLoading(false);
       return;
     }
 
+    setIsLoading(true);
+    setIsOpen(true);
+
     const timer = setTimeout(async () => {
-      setIsLoading(true);
-      const res = await stockApi.searchStocks(query);
-      setResults(res);
-      setIsLoading(false);
-      setIsOpen(true);
-    }, 200);
+      try {
+        const res = await stockApi.searchStocks(q);
+        setResults(res || []);
+      } catch (e) {
+        setResults([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [query]);
@@ -47,7 +55,9 @@ const SearchBar = ({ placeholder = "Search stock symbol or company name (e.g. AA
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && results.length > 0) {
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+    } else if (e.key === 'Enter' && results.length > 0) {
       handleSelectStock(results[0].symbol);
     }
   };

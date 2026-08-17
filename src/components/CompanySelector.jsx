@@ -11,18 +11,24 @@ const CompanySelector = ({ onSelectCompany }) => {
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
+    const q = searchQuery.trim();
+    if (!q || q.length < 2) {
       setSearchResults([]);
       setIsSearching(false);
       return;
     }
 
+    setIsSearching(true);
     const timer = setTimeout(async () => {
-      setIsSearching(true);
-      const res = await stockApi.searchStocks(searchQuery);
-      setSearchResults(res);
-      setIsSearching(false);
-    }, 250);
+      try {
+        const res = await stockApi.searchStocks(q);
+        setSearchResults(res || []);
+      } catch (e) {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -30,26 +36,13 @@ const CompanySelector = ({ onSelectCompany }) => {
   const filteredCompanies = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (q) {
-      if (searchResults.length > 0) {
-        return searchResults.map(item => ({
-          symbol: item.symbol,
-          name: item.name,
-          sector: item.sector || 'General',
-          industry: item.industry || 'Equities',
-          logo: item.logo || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80'
-        }));
-      }
-      return COMPANY_CATALOG.filter((comp) => {
-        const matchesSearch =
-          comp.symbol.toLowerCase().includes(q) ||
-          comp.name.toLowerCase().includes(q) ||
-          comp.industry.toLowerCase().includes(q);
-
-        const matchesCategory =
-          selectedCategory === 'All' || comp.sector === selectedCategory;
-
-        return matchesSearch && matchesCategory;
-      });
+      return searchResults.map(item => ({
+        symbol: item.symbol,
+        name: item.name,
+        sector: item.sector || 'General',
+        industry: item.industry || 'Equities',
+        logo: item.logo || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80'
+      }));
     }
 
     return COMPANY_CATALOG.filter((comp) => {
@@ -119,11 +112,17 @@ const CompanySelector = ({ onSelectCompany }) => {
           {selectedCategory !== 'All' && <span>Category: <strong>{selectedCategory}</strong></span>}
         </div>
 
-        {filteredCompanies.length === 0 ? (
+        {isSearching ? (
+          <div className="glass-card rounded-2xl p-12 text-center text-slate-400 space-y-3 border border-slate-800 flex flex-col items-center justify-center">
+            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+            <h3 className="text-base font-bold text-slate-200">Searching AI Stock Intelligence...</h3>
+            <p className="text-xs">Resolving matching tickers and market data for "{searchQuery}"</p>
+          </div>
+        ) : filteredCompanies.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center text-slate-400 space-y-3 border border-slate-800">
             <Building2 className="w-12 h-12 text-slate-600 mx-auto" />
             <h3 className="text-base font-bold text-slate-200">No Companies Found</h3>
-            <p className="text-xs">No matching company for "{searchQuery}". Try searching for NVDA, AAPL, or TSLA.</p>
+            <p className="text-xs">No matching company for "{searchQuery}". Try searching for YESBANK, RELIANCE, AAPL, or TSLA.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">

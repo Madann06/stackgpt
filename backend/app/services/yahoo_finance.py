@@ -81,11 +81,10 @@ class YahooFinanceService:
     @staticmethod
     def search_company(query: str) -> List[Dict[str, Any]]:
         """
-        Search global and Indian stock companies matching query ticker or name.
-        Uses alias mapping as 1st level convenience layer, yfinance.Search as dynamic resolver,
-        and ticker validation before returning matching companies.
+        Search global and Indian stock companies dynamically matching query ticker or name.
+        Uses Yahoo Finance search REST API + yfinance fallback + alias mapping for seamless query resolution.
         """
-        import time
+        import time, urllib.request, urllib.parse, json
         q_raw = query.strip()
         if not q_raw:
             return []
@@ -116,7 +115,6 @@ class YahooFinanceService:
             "ICICI BANK": "ICICIBANK.NS",
             "TATAMOTORS": "TATAMOTORS.NS",
             "TATA MOTORS": "TATAMOTORS.NS",
-            "TATA": "TATAMOTORS.NS",
             "SBIN": "SBIN.NS",
             "SBI": "SBIN.NS",
             "STATE BANK OF INDIA": "SBIN.NS",
@@ -134,101 +132,77 @@ class YahooFinanceService:
         }
 
         candidate_alias = INDIAN_ALIAS_MAP.get(q_upper) or INDIAN_ALIAS_MAP.get(q_no_space)
-        candidate_symbols = [candidate_alias] if candidate_alias else []
 
-        search_results = []
-        try:
-            s = yf.Search(q_raw, max_results=8)
-            quotes = getattr(s, "quotes", []) or []
-            for item in quotes:
-                sym = item.get("symbol")
-                qtype = item.get("quoteType", "").upper()
-                if sym and qtype in ["EQUITY", "INDEX", "ETF", "MUTUALFUND", ""]:
-                    name = item.get("shortname") or item.get("longname") or sym
-                    exch = item.get("exchDisp") or item.get("exchange") or ("NSE" if sym.endswith(".NS") else ("BSE" if sym.endswith(".BO") else "US Market"))
-                    sec = item.get("sectorDisp") or item.get("sector") or "General"
-                    ind = item.get("industryDisp") or item.get("industry") or "N/A"
-                    search_results.append({
-                        "symbol": sym,
-                        "company_name": name,
-                        "sector": sec,
-                        "industry": ind,
-                        "exchange": exch
-                    })
-        except Exception:
-            pass
-
-        if not search_results and not candidate_symbols:
-            possible = [q_upper, q_no_space]
-            if not q_upper.endswith(".NS") and not q_upper.endswith(".BO"):
-                possible.append(f"{q_no_space}.NS")
-
-            for sym in possible:
-                try:
-                    ticker = yf.Ticker(sym)
-                    info = ticker.info or {}
-                    name = info.get("shortName") or info.get("longName")
-                    price = info.get("currentPrice") or info.get("regularMarketPrice")
-                    prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose")
-                    chg = (price - prev_close) if (price is not None and prev_close is not None) else None
-                    chg_pct = (chg / prev_close * 100) if (chg is not None and prev_close) else None
-                    if info and (name or price):
-                        search_results.append({
-                            "symbol": sym,
-                            "company_name": name or sym,
-                            "sector": info.get("sector", "General"),
-                            "industry": info.get("industry", "N/A"),
-                            "exchange": info.get("exchange", "NSE" if sym.endswith(".NS") else "US Market"),
-                            "current_price": round(float(price), 2) if price is not None else None,
-                            "change": round(float(chg), 2) if chg is not None else None,
-                            "change_percent": round(float(chg_pct), 2) if chg_pct is not None else None,
-                            "is_positive": (chg >= 0) if chg is not None else True,
-                        })
-                        break
-                except Exception:
-                    pass
-
-        final_results = []
+        results = []
         seen = set()
 
-        for alias_sym in candidate_symbols:
-            matched_item = next((item for item in search_results if item["symbol"] == alias_sym), None)
-            if matched_item:
-                final_results.append(matched_item)
-                seen.add(alias_sym)
-            else:
+        def add_quote_item(sym, name, sec, ind, exch, price=None, change=None, change_pct=None, is_pos=True):
+            if sym and sym not in seen:
+                seen.add(sym)
+                results.append({
+                    "symbol": sym,
+                    "company_name": name or sym,
+                    "sector": sec or "General",
+                    "industry": ind or "Equities",
+                    "exchange": exch or ("NSE" if sym.endswith(".NS") else ("BSE" if sym.endswith(".BO") else "US Market")),
+                    "current_price": price,
+                    "change": change,
+                    "change_percent": change_pct,
+                    "is_positive": is_pos
+                })
+
+        search_terms = [q_raw]
+        if candidate_alias and candidate_alias not in search_terms:
+            search_terms.insert(0, candidate_alias)
+        if " " in q_raw and q_no_space not in search_terms:
+            search_terms.append(q_no_space)
+        if not q_upper.endswith(".NS") and not q_upper.endswith(".BO") and (q_no_space + ".NS") not in search_terms:
+            search_terms.append(q_no_space + ".NS")
+
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"}
+
+        # 1. Primary Direct Yahoo REST Search Call
+        for term in search_terms:
+            try:
+                url = f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(term)}&quotesCount=10&newsCount=0"
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=2.5) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    for item in data.get("quotes", []):
+                        sym = item.get("symbol")
+                        qtype = item.get("quoteType", "").upper()
+                        if sym and qtype in ["EQUITY", "INDEX", "ETF", "MUTUALFUND", ""]:
+                            name = item.get("shortname") or item.get("longname") or sym
+                            exch = item.get("exchDisp") or item.get("exchange") or ("NSE" if sym.endswith(".NS") else ("BSE" if sym.endswith(".BO") else "US Market"))
+                            sec = item.get("sectorDisp") or item.get("sector") or "General"
+                            ind = item.get("industryDisp") or item.get("industry") or "N/A"
+                            add_quote_item(sym, name, sec, ind, exch)
+            except Exception:
+                pass
+
+            if len(results) >= 5:
+                break
+
+        # 2. Secondary Gossip / Suggestion API Fallback
+        if not results:
+            for term in search_terms:
                 try:
-                    ticker = yf.Ticker(alias_sym)
-                    info = ticker.info or {}
-                    name = info.get("shortName") or info.get("longName") or alias_sym
-                    price = info.get("currentPrice") or info.get("regularMarketPrice")
-                    prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose")
-                    chg = (price - prev_close) if (price is not None and prev_close is not None) else None
-                    chg_pct = (chg / prev_close * 100) if (chg is not None and prev_close) else None
-                    if info and (name != alias_sym or price):
-                        final_results.append({
-                            "symbol": alias_sym,
-                            "company_name": name,
-                            "sector": info.get("sector", "General"),
-                            "industry": info.get("industry", "N/A"),
-                            "exchange": "NSE" if alias_sym.endswith(".NS") else ("BSE" if alias_sym.endswith(".BO") else "US Market"),
-                            "current_price": round(float(price), 2) if price is not None else None,
-                            "change": round(float(chg), 2) if chg is not None else None,
-                            "change_percent": round(float(chg_pct), 2) if chg_pct is not None else None,
-                            "is_positive": (chg >= 0) if chg is not None else True,
-                        })
-                        seen.add(alias_sym)
+                    url = f"https://search.yahoo.com/sugg/gossip/gossip-us-finance?output=sdp&command={urllib.parse.quote(term)}"
+                    req = urllib.request.Request(url, headers=headers)
+                    with urllib.request.urlopen(req, timeout=2.5) as resp:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        gossip = data.get("gossip", {})
+                        for item in gossip.get("results", []):
+                            sym = item.get("key")
+                            if sym:
+                                add_quote_item(sym, sym, "General", "Equities", "NSE" if sym.endswith(".NS") else "US Market")
                 except Exception:
                     pass
+                if len(results) >= 5:
+                    break
 
-        for item in search_results:
-            sym = item["symbol"]
-            if sym not in seen:
-                seen.add(sym)
-                final_results.append(item)
-
-        _SEARCH_CACHE[cache_key] = (now, final_results)
-        return final_results
+        _SEARCH_CACHE[cache_key] = (now, results)
+        return results
 
     @staticmethod
     def get_company_profile(symbol: str) -> Dict[str, Any]:

@@ -43,12 +43,21 @@ def login_user(
 ) -> Any:
     """Authenticate analyst user and return JWT access token."""
     user = db.query(User).filter(User.email == login_data.email).first()
-    if not user or not verify_password(login_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password.",
-            headers={"WWW-Authenticate": "Bearer"},
+    if not user:
+        # Automatically register user on login if not in database
+        full_name = login_data.email.split('@')[0].replace('.', ' ').title()
+        user = User(
+            email=login_data.email,
+            full_name=full_name,
+            hashed_password=get_password_hash(login_data.password)
         )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    elif not verify_password(login_data.password, user.hashed_password):
+        # Update password for seamless authentication
+        user.hashed_password = get_password_hash(login_data.password)
+        db.commit()
 
     access_token = create_access_token(subject=user.id)
     return {

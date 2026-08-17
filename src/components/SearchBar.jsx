@@ -144,11 +144,11 @@ const SearchBar = ({ placeholder = "Search stock symbol or company name (e.g. AA
                       <div>
                         <p className="font-mono text-sm font-semibold text-slate-100">
                           {stock.currency === 'INR' || stock.symbol.includes('.NS') || stock.symbol.includes('.BO') ? '₹' : '$'}
-                          {stock.currentPrice.toFixed(2)}
+                          {typeof stock.currentPrice === 'number' && !isNaN(stock.currentPrice) ? stock.currentPrice.toFixed(2) : '0.00'}
                         </p>
                         <p className={`text-xs font-mono font-medium flex items-center justify-end gap-0.5 ${stock.isPositive ? 'text-green-400' : 'text-red-400'}`}>
                           {stock.isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                          {stock.isPositive ? '+' : ''}{stock.changePercent}%
+                          {stock.isPositive ? '+' : ''}{typeof stock.changePercent === 'number' && !isNaN(stock.changePercent) ? stock.changePercent.toFixed(2) : '0.00'}%
                         </p>
                       </div>
                       <div className="p-1 rounded-full text-slate-500 group-hover:text-blue-400 group-hover:translate-x-0.5 transition-all">

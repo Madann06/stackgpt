@@ -250,8 +250,7 @@ const CompanyAnalysis = () => {
                   {/* News Stream */}
                   <NewsSection news={news} />
                 </>
-              )
-            )}
+              ) : null}
           </>
         )}
       </div>

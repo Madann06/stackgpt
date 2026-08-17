@@ -68,10 +68,16 @@ const CompanyAnalysis = () => {
       setAnalysisData(null);
       setSelectedDuration(null);
       try {
-        const [details, newsList] = await Promise.all([
-          stockApi.getStockDetails(activeSymbol),
-          stockApi.getStockNews(activeSymbol)
+        const detailsPromise = stockApi.getStockDetails(activeSymbol);
+        const newsPromise = typeof stockApi.getStockNews === 'function' ? stockApi.getStockNews(activeSymbol) : Promise.resolve([]);
+
+        const [detailsResult, newsResult] = await Promise.allSettled([
+          detailsPromise,
+          newsPromise
         ]);
+
+        const details = detailsResult.status === 'fulfilled' ? detailsResult.value : null;
+        const newsList = newsResult.status === 'fulfilled' ? newsResult.value : [];
 
         if (isMounted) {
           if (!details || details.error) {
@@ -79,7 +85,7 @@ const CompanyAnalysis = () => {
             setStock(null);
           } else {
             setStock(details);
-            setNews(newsList || []);
+            setNews(Array.isArray(newsList) ? newsList : []);
             if (addToHistory) {
               addToHistory({ symbol: details.symbol, name: details.name || details.symbol });
             }

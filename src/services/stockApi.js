@@ -267,6 +267,17 @@ export const stockApi = {
     }
   },
 
+  async getStockNews(symbol) {
+    if (!symbol) return [];
+    const s = symbol.toUpperCase();
+    try {
+      const res = await api.get(`/company/news/${s}`);
+      return res.data || [];
+    } catch (e) {
+      return [];
+    }
+  },
+
 
   async getStockChartData(symbol, timeframe = '1M') {
     const s = (symbol || 'AAPL').toUpperCase();

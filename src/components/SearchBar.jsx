@@ -142,7 +142,10 @@ const SearchBar = ({ placeholder = "Search stock symbol or company name (e.g. AA
 
                     <div className="flex items-center gap-4 text-right">
                       <div>
-                        <p className="font-mono text-sm font-semibold text-slate-100">${stock.currentPrice.toFixed(2)}</p>
+                        <p className="font-mono text-sm font-semibold text-slate-100">
+                          {stock.currency === 'INR' || stock.symbol.includes('.NS') || stock.symbol.includes('.BO') ? '₹' : '$'}
+                          {stock.currentPrice.toFixed(2)}
+                        </p>
                         <p className={`text-xs font-mono font-medium flex items-center justify-end gap-0.5 ${stock.isPositive ? 'text-green-400' : 'text-red-400'}`}>
                           {stock.isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                           {stock.isPositive ? '+' : ''}{stock.changePercent}%
@@ -158,7 +161,7 @@ const SearchBar = ({ placeholder = "Search stock symbol or company name (e.g. AA
             ) : (
               <div className="p-6 text-center text-slate-400">
                 <p className="text-sm">No stocks matching "<span className="text-slate-200">{query}</span>"</p>
-                <p className="text-xs text-slate-500 mt-1">Try searching for AAPL, NVDA, TSLA, MSFT, AMZN, or GOOGL</p>
+                <p className="text-xs text-slate-500 mt-1">Try a company name or ticker such as AAPL, INFY, or YESBANK.NS.</p>
               </div>
             )}
 

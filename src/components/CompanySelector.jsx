@@ -1,27 +1,61 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Sparkles, Building2, ChevronRight, Filter } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { CATEGORIES, COMPANY_CATALOG } from '../data/companyCatalog';
+import { stockApi } from '../services/stockApi';
 
 const CompanySelector = ({ onSelectCompany }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      const res = await stockApi.searchStocks(searchQuery);
+      setSearchResults(res);
+      setIsSearching(false);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const filteredCompanies = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      if (searchResults.length > 0) {
+        return searchResults.map(item => ({
+          symbol: item.symbol,
+          name: item.name,
+          sector: item.sector || 'General',
+          industry: item.industry || 'Equities',
+          logo: item.logo || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80'
+        }));
+      }
+      return COMPANY_CATALOG.filter((comp) => {
+        const matchesSearch =
+          comp.symbol.toLowerCase().includes(q) ||
+          comp.name.toLowerCase().includes(q) ||
+          comp.industry.toLowerCase().includes(q);
+
+        const matchesCategory =
+          selectedCategory === 'All' || comp.sector === selectedCategory;
+
+        return matchesSearch && matchesCategory;
+      });
+    }
+
     return COMPANY_CATALOG.filter((comp) => {
-      const matchesSearch =
-        !q ||
-        comp.symbol.toLowerCase().includes(q) ||
-        comp.name.toLowerCase().includes(q) ||
-        comp.industry.toLowerCase().includes(q);
-
-      const matchesCategory =
-        selectedCategory === 'All' || comp.sector === selectedCategory;
-
-      return matchesSearch && matchesCategory;
+      return selectedCategory === 'All' || comp.sector === selectedCategory;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, searchResults]);
 
   return (
     <div className="space-y-8">

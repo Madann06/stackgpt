@@ -32,16 +32,19 @@ export const stockApi = {
       const res = await api.get(`/company/search?query=${encodeURIComponent(query)}`);
       return res.data.map((item) => {
         const mock = MOCK_STOCKS[item.symbol] || {};
+        const isInr = item.symbol.includes('.NS') || item.symbol.includes('.BO');
         return {
           symbol: item.symbol,
           name: item.company_name,
           sector: item.sector || mock.sector || 'Technology',
           industry: item.industry || mock.industry || 'General',
+          exchange: item.exchange || mock.exchange || (isInr ? 'NSE' : 'US Market'),
           logo: mock.logo || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
-          currentPrice: mock.currentPrice || 229.35,
-          change: mock.change || 3.42,
-          changePercent: mock.changePercent || 1.51,
-          isPositive: mock.isPositive !== undefined ? mock.isPositive : true,
+          currentPrice: item.current_price !== null && item.current_price !== undefined ? item.current_price : (mock.currentPrice || (isInr ? 1460.0 : 229.35)),
+          change: item.change !== null && item.change !== undefined ? item.change : (mock.change || 0.0),
+          changePercent: item.change_percent !== null && item.change_percent !== undefined ? item.change_percent : (mock.changePercent || 0.0),
+          isPositive: item.is_positive !== undefined && item.is_positive !== null ? item.is_positive : true,
+          currency: isInr ? 'INR' : 'USD',
         };
       });
     } catch (e) {

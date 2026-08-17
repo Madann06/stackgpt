@@ -38,97 +38,197 @@ def format_percentage(num: Optional[float]) -> str:
 def normalize_symbol(query: str) -> str:
     """Normalize input stock ticker, mapping popular Indian stocks without .NS suffix."""
     q = query.strip().upper()
+    q_no_space = q.replace(" ", "")
     INDIAN_ALIAS_MAP = {
         "RELIANCE": "RELIANCE.NS",
+        "RELIANCE INDUSTRIES": "RELIANCE.NS",
         "TCS": "TCS.NS",
+        "TATA CONSULTANCY": "TCS.NS",
         "INFY": "INFY.NS",
         "INFOSYS": "INFY.NS",
         "HDFCBANK": "HDFCBANK.NS",
         "HDFC": "HDFCBANK.NS",
+        "HDFC BANK": "HDFCBANK.NS",
         "ICICIBANK": "ICICIBANK.NS",
         "ICICI": "ICICIBANK.NS",
+        "ICICI BANK": "ICICIBANK.NS",
         "TATAMOTORS": "TATAMOTORS.NS",
+        "TATA MOTORS": "TATAMOTORS.NS",
         "TATA": "TATAMOTORS.NS",
         "SBIN": "SBIN.NS",
         "SBI": "SBIN.NS",
+        "STATE BANK OF INDIA": "SBIN.NS",
+        "STATE BANK": "SBIN.NS",
+        "YESBANK": "YESBANK.NS",
+        "YES BANK": "YESBANK.NS",
         "BHARTIARTL": "BHARTIARTL.NS",
         "AIRTEL": "BHARTIARTL.NS",
         "WIPRO": "WIPRO.NS",
         "ITC": "ITC.NS",
+        "CIPLA": "CIPLA.NS",
+        "SUNPHARMA": "SUNPHARMA.NS",
         "NIFTY": "^NSEI",
         "SENSEX": "^BSESN"
     }
-    return INDIAN_ALIAS_MAP.get(q, q)
+    return INDIAN_ALIAS_MAP.get(q) or INDIAN_ALIAS_MAP.get(q_no_space) or q
+
+
+_SEARCH_CACHE: Dict[str, tuple] = {}
+_CACHE_TTL = 300
 
 
 class YahooFinanceService:
     @staticmethod
     def search_company(query: str) -> List[Dict[str, Any]]:
-        """Search global and Indian stock companies matching query ticker or name."""
-        q = query.strip().upper()
-        if not q:
+        """
+        Search global and Indian stock companies matching query ticker or name.
+        Uses alias mapping as 1st level convenience layer, yfinance.Search as dynamic resolver,
+        and ticker validation before returning matching companies.
+        """
+        import time
+        q_raw = query.strip()
+        if not q_raw:
             return []
 
-        # Curated dictionary of popular US & Indian NSE/BSE stock tickers
-        POPULAR_TICKERS = {
-            # Indian Stocks (NSE)
-            "RELIANCE.NS": {"company_name": "Reliance Industries Ltd", "sector": "Energy", "industry": "Oil, Gas & Consumable Fuels", "exchange": "NSE"},
-            "TCS.NS": {"company_name": "Tata Consultancy Services Ltd", "sector": "Technology", "industry": "IT Services", "exchange": "NSE"},
-            "INFY.NS": {"company_name": "Infosys Limited", "sector": "Technology", "industry": "IT Services", "exchange": "NSE"},
-            "HDFCBANK.NS": {"company_name": "HDFC Bank Limited", "sector": "Financial Services", "industry": "Private Bank", "exchange": "NSE"},
-            "ICICIBANK.NS": {"company_name": "ICICI Bank Limited", "sector": "Financial Services", "industry": "Private Bank", "exchange": "NSE"},
-            "TATAMOTORS.NS": {"company_name": "Tata Motors Limited", "sector": "Consumer Cyclical", "industry": "Auto Manufacturers", "exchange": "NSE"},
-            "SBIN.NS": {"company_name": "State Bank of India", "sector": "Financial Services", "industry": "Public Bank", "exchange": "NSE"},
-            "BHARTIARTL.NS": {"company_name": "Bharti Airtel Limited", "sector": "Communication Services", "industry": "Telecom", "exchange": "NSE"},
-            "WIPRO.NS": {"company_name": "Wipro Limited", "sector": "Technology", "industry": "IT Services", "exchange": "NSE"},
-            "ITC.NS": {"company_name": "ITC Limited", "sector": "Consumer Defensive", "industry": "FMCG", "exchange": "NSE"},
-            
-            # US Big Tech
-            "AAPL": {"company_name": "Apple Inc.", "sector": "Technology", "industry": "Consumer Electronics", "exchange": "NASDAQ"},
-            "NVDA": {"company_name": "NVIDIA Corporation", "sector": "Technology", "industry": "Semiconductors", "exchange": "NASDAQ"},
-            "TSLA": {"company_name": "Tesla, Inc.", "sector": "Consumer Cyclical", "industry": "Auto Manufacturers", "exchange": "NASDAQ"},
-            "MSFT": {"company_name": "Microsoft Corporation", "sector": "Technology", "industry": "Software", "exchange": "NASDAQ"},
-            "AMZN": {"company_name": "Amazon.com, Inc.", "sector": "Consumer Cyclical", "industry": "Internet Retail", "exchange": "NASDAQ"},
-            "GOOGL": {"company_name": "Alphabet Inc.", "sector": "Communication Services", "industry": "Internet Content", "exchange": "NASDAQ"},
-            "META": {"company_name": "Meta Platforms, Inc.", "sector": "Communication Services", "industry": "Internet Content", "exchange": "NASDAQ"}
+        cache_key = q_raw.upper()
+        now = time.time()
+
+        if cache_key in _SEARCH_CACHE:
+            cached_time, cached_data = _SEARCH_CACHE[cache_key]
+            if now - cached_time < _CACHE_TTL:
+                return cached_data
+
+        q_upper = q_raw.upper()
+        q_no_space = q_upper.replace(" ", "")
+
+        INDIAN_ALIAS_MAP = {
+            "RELIANCE": "RELIANCE.NS",
+            "RELIANCE INDUSTRIES": "RELIANCE.NS",
+            "TCS": "TCS.NS",
+            "TATA CONSULTANCY": "TCS.NS",
+            "INFY": "INFY.NS",
+            "INFOSYS": "INFY.NS",
+            "HDFCBANK": "HDFCBANK.NS",
+            "HDFC": "HDFCBANK.NS",
+            "HDFC BANK": "HDFCBANK.NS",
+            "ICICIBANK": "ICICIBANK.NS",
+            "ICICI": "ICICIBANK.NS",
+            "ICICI BANK": "ICICIBANK.NS",
+            "TATAMOTORS": "TATAMOTORS.NS",
+            "TATA MOTORS": "TATAMOTORS.NS",
+            "TATA": "TATAMOTORS.NS",
+            "SBIN": "SBIN.NS",
+            "SBI": "SBIN.NS",
+            "STATE BANK OF INDIA": "SBIN.NS",
+            "STATE BANK": "SBIN.NS",
+            "YESBANK": "YESBANK.NS",
+            "YES BANK": "YESBANK.NS",
+            "BHARTIARTL": "BHARTIARTL.NS",
+            "AIRTEL": "BHARTIARTL.NS",
+            "WIPRO": "WIPRO.NS",
+            "ITC": "ITC.NS",
+            "CIPLA": "CIPLA.NS",
+            "SUNPHARMA": "SUNPHARMA.NS",
+            "NIFTY": "^NSEI",
+            "SENSEX": "^BSESN"
         }
 
-        results = []
-        # Check matching popular list
-        for symbol, info in POPULAR_TICKERS.items():
-            clean_symbol = symbol.replace(".NS", "")
-            if q in symbol or q in clean_symbol or q in info["company_name"].upper():
-                results.append({
-                    "symbol": symbol,
-                    "company_name": info["company_name"],
-                    "sector": info["sector"],
-                    "industry": info["industry"],
-                    "exchange": info["exchange"]
-                })
+        candidate_alias = INDIAN_ALIAS_MAP.get(q_upper) or INDIAN_ALIAS_MAP.get(q_no_space)
+        candidate_symbols = [candidate_alias] if candidate_alias else []
 
-        # If not matched, try yfinance direct & .NS lookup
-        if not results:
-            target_symbols = [normalize_symbol(q)]
-            if not q.endswith(".NS") and not q.endswith(".BO"):
-                target_symbols.append(f"{q}.NS")
+        search_results = []
+        try:
+            s = yf.Search(q_raw, max_results=8)
+            quotes = getattr(s, "quotes", []) or []
+            for item in quotes:
+                sym = item.get("symbol")
+                qtype = item.get("quoteType", "").upper()
+                if sym and qtype in ["EQUITY", "INDEX", "ETF", "MUTUALFUND", ""]:
+                    name = item.get("shortname") or item.get("longname") or sym
+                    exch = item.get("exchDisp") or item.get("exchange") or ("NSE" if sym.endswith(".NS") else ("BSE" if sym.endswith(".BO") else "US Market"))
+                    sec = item.get("sectorDisp") or item.get("sector") or "General"
+                    ind = item.get("industryDisp") or item.get("industry") or "N/A"
+                    search_results.append({
+                        "symbol": sym,
+                        "company_name": name,
+                        "sector": sec,
+                        "industry": ind,
+                        "exchange": exch
+                    })
+        except Exception:
+            pass
 
-            for sym in target_symbols:
+        if not search_results and not candidate_symbols:
+            possible = [q_upper, q_no_space]
+            if not q_upper.endswith(".NS") and not q_upper.endswith(".BO"):
+                possible.append(f"{q_no_space}.NS")
+
+            for sym in possible:
                 try:
                     ticker = yf.Ticker(sym)
-                    info = ticker.info
-                    if info and ("shortName" in info or "longName" in info):
-                        results.append({
+                    info = ticker.info or {}
+                    name = info.get("shortName") or info.get("longName")
+                    price = info.get("currentPrice") or info.get("regularMarketPrice")
+                    prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose")
+                    chg = (price - prev_close) if (price is not None and prev_close is not None) else None
+                    chg_pct = (chg / prev_close * 100) if (chg is not None and prev_close) else None
+                    if info and (name or price):
+                        search_results.append({
                             "symbol": sym,
-                            "company_name": info.get("shortName") or info.get("longName") or sym,
-                            "sector": info.get("sector", "Technology"),
+                            "company_name": name or sym,
+                            "sector": info.get("sector", "General"),
                             "industry": info.get("industry", "N/A"),
-                            "exchange": info.get("exchange", "NSE" if sym.endswith(".NS") else "US Market")
+                            "exchange": info.get("exchange", "NSE" if sym.endswith(".NS") else "US Market"),
+                            "current_price": round(float(price), 2) if price is not None else None,
+                            "change": round(float(chg), 2) if chg is not None else None,
+                            "change_percent": round(float(chg_pct), 2) if chg_pct is not None else None,
+                            "is_positive": (chg >= 0) if chg is not None else True,
                         })
                         break
                 except Exception:
                     pass
 
-        return results
+        final_results = []
+        seen = set()
+
+        for alias_sym in candidate_symbols:
+            matched_item = next((item for item in search_results if item["symbol"] == alias_sym), None)
+            if matched_item:
+                final_results.append(matched_item)
+                seen.add(alias_sym)
+            else:
+                try:
+                    ticker = yf.Ticker(alias_sym)
+                    info = ticker.info or {}
+                    name = info.get("shortName") or info.get("longName") or alias_sym
+                    price = info.get("currentPrice") or info.get("regularMarketPrice")
+                    prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose")
+                    chg = (price - prev_close) if (price is not None and prev_close is not None) else None
+                    chg_pct = (chg / prev_close * 100) if (chg is not None and prev_close) else None
+                    if info and (name != alias_sym or price):
+                        final_results.append({
+                            "symbol": alias_sym,
+                            "company_name": name,
+                            "sector": info.get("sector", "General"),
+                            "industry": info.get("industry", "N/A"),
+                            "exchange": "NSE" if alias_sym.endswith(".NS") else ("BSE" if alias_sym.endswith(".BO") else "US Market"),
+                            "current_price": round(float(price), 2) if price is not None else None,
+                            "change": round(float(chg), 2) if chg is not None else None,
+                            "change_percent": round(float(chg_pct), 2) if chg_pct is not None else None,
+                            "is_positive": (chg >= 0) if chg is not None else True,
+                        })
+                        seen.add(alias_sym)
+                except Exception:
+                    pass
+
+        for item in search_results:
+            sym = item["symbol"]
+            if sym not in seen:
+                seen.add(sym)
+                final_results.append(item)
+
+        _SEARCH_CACHE[cache_key] = (now, final_results)
+        return final_results
 
     @staticmethod
     def get_company_profile(symbol: str) -> Dict[str, Any]:

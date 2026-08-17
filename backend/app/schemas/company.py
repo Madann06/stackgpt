@@ -8,6 +8,10 @@ class CompanySearchResult(BaseModel):
     sector: Optional[str] = "Technology"
     industry: Optional[str] = None
     exchange: Optional[str] = None
+    current_price: Optional[float] = None
+    change: Optional[float] = None
+    change_percent: Optional[float] = None
+    is_positive: Optional[bool] = True
 
 
 class CompanyProfile(BaseModel):

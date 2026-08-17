@@ -205,77 +205,100 @@ class YahooFinanceService:
         return results
 
     @staticmethod
-    def get_company_profile(symbol: str) -> Dict[str, Any]:
-        """Fetch company profile info including summary, sector, price, and currency."""
+    def get_company_profile(symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch company profile info including summary, sector, price, and currency dynamically."""
         symbol = normalize_symbol(symbol)
         try:
             ticker = yf.Ticker(symbol)
-            info = ticker.info or {}
+            info = {}
+            try:
+                info = ticker.info or {}
+            except Exception:
+                pass
 
-            price = info.get("currentPrice") or info.get("regularMarketPrice") or 2940.50
-            market_cap_raw = info.get("marketCap")
-            currency = info.get("currency", "INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD")
+            price = None
+            market_cap_raw = None
+
+            try:
+                price = ticker.fast_info.last_price
+                market_cap_raw = ticker.fast_info.market_cap
+            except Exception:
+                pass
+
+            if price is None:
+                price = info.get("currentPrice") or info.get("regularMarketPrice")
+
+            if price is None and not info:
+                hist = ticker.history(period="2d")
+                if hist.empty:
+                    return None
+                price = float(hist["Close"].iloc[-1])
+
+            currency = info.get("currency") or ("INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD")
+            company_name = info.get("longName") or info.get("shortName") or symbol
 
             return {
                 "symbol": symbol,
-                "company_name": info.get("longName") or info.get("shortName") or f"{symbol} Ltd.",
-                "sector": info.get("sector", "Conglomerate" if "RELIANCE" in symbol else "Technology"),
-                "industry": info.get("industry", "Energy & Retail" if "RELIANCE" in symbol else "IT Services"),
-                "summary": info.get("longBusinessSummary", f"Premier enterprise listed on national exchange providing leading products and services."),
-                "website": info.get("website", f"https://www.{symbol.split('.')[0].lower()}.com"),
-                "current_price": round(float(price), 2),
-                "market_cap": format_large_number(market_cap_raw, currency),
+                "company_name": company_name,
+                "sector": info.get("sector") or "General",
+                "industry": info.get("industry") or "Equities",
+                "summary": info.get("longBusinessSummary") or f"Company profile overview for {company_name} ({symbol}).",
+                "website": info.get("website") or f"https://finance.yahoo.com/quote/{symbol}",
+                "current_price": round(float(price), 2) if price is not None else None,
+                "market_cap": format_large_number(market_cap_raw or info.get("marketCap"), currency) if (market_cap_raw or info.get("marketCap")) else "N/A",
                 "currency": currency
             }
         except Exception:
-            is_inr = symbol.endswith(".NS") or symbol.endswith(".BO")
-            return {
-                "symbol": symbol,
-                "company_name": f"{symbol.split('.')[0]} Ltd.",
-                "sector": "Indian Enterprise",
-                "industry": "Commercial & Industrial",
-                "summary": "Leading Indian enterprise listed on the National Stock Exchange (NSE).",
-                "website": f"https://www.{symbol.split('.')[0].lower()}.com",
-                "current_price": 2940.50 if is_inr else 229.35,
-                "market_cap": "₹19.85L Cr" if is_inr else "3.50T",
-                "currency": "INR" if is_inr else "USD"
-            }
+            return None
 
     @staticmethod
-    def get_stock_price(symbol: str) -> Dict[str, Any]:
-        """Fetch current stock price and daily change metrics."""
+    def get_stock_price(symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch real current stock price and daily change metrics dynamically."""
         symbol = normalize_symbol(symbol)
         try:
             ticker = yf.Ticker(symbol)
-            info = ticker.info or {}
+            price = None
+            prev_close = None
 
-            current_price = info.get("currentPrice") or info.get("regularMarketPrice") or 2940.50
-            previous_close = info.get("previousClose") or info.get("regularMarketPreviousClose") or (current_price * 0.985)
+            try:
+                price = ticker.fast_info.last_price
+                prev_close = ticker.fast_info.previous_close
+            except Exception:
+                pass
 
-            change = current_price - previous_close
-            change_percent = (change / previous_close) * 100 if previous_close else 0.0
-            currency = info.get("currency", "INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD")
+            info = {}
+            if price is None or prev_close is None:
+                try:
+                    info = ticker.info or {}
+                    if price is None:
+                        price = info.get("currentPrice") or info.get("regularMarketPrice")
+                    if prev_close is None:
+                        prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose")
+                except Exception:
+                    pass
+
+            if price is None or prev_close is None:
+                hist = ticker.history(period="5d")
+                if hist.empty:
+                    return None
+                price = float(hist["Close"].iloc[-1])
+                prev_close = float(hist["Close"].iloc[-2]) if len(hist) > 1 else price
+
+            change = price - prev_close
+            change_percent = (change / prev_close) * 100 if prev_close else 0.0
+            currency = info.get("currency") or ("INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD")
 
             return {
                 "symbol": symbol,
                 "company_name": info.get("shortName") or info.get("longName") or symbol,
-                "price": round(float(current_price), 2),
+                "price": round(float(price), 2),
                 "change": round(float(change), 2),
                 "change_percent": round(float(change_percent), 2),
                 "is_positive": change >= 0,
                 "currency": currency
             }
         except Exception:
-            is_inr = symbol.endswith(".NS") or symbol.endswith(".BO")
-            return {
-                "symbol": symbol,
-                "company_name": f"{symbol.split('.')[0]} Ltd.",
-                "price": 2940.50 if is_inr else 229.35,
-                "change": 45.20 if is_inr else 3.42,
-                "change_percent": 1.56,
-                "is_positive": True,
-                "currency": "INR" if is_inr else "USD"
-            }
+            return None
 
     @staticmethod
     def get_historical_data(symbol: str, timeframe: str = "1M") -> List[Dict[str, Any]]:
@@ -297,17 +320,18 @@ class YahooFinanceService:
             df = ticker.history(period=period, interval=interval)
             
             if df.empty:
-                raise ValueError("Empty historical dataframe")
+                return []
 
-            # Clean missing data & compute 20-period Simple Moving Average from actual Close prices
             df = df.dropna(subset=['Open', 'High', 'Low', 'Close'])
+            if df.empty:
+                return []
+
             df["MA20"] = df["Close"].rolling(window=min(20, len(df)), min_periods=1).mean()
 
             points = []
             seen_times = set()
 
             for index, row in df.iterrows():
-                # Lightweight charts time format: YYYY-MM-DD for daily/weekly, UTC Unix timestamp for intraday
                 if timeframe in ["1D", "1W"]:
                     time_val = int(index.timestamp())
                     time_str = index.strftime("%H:%M" if timeframe == "1D" else "%a %H:%M")
@@ -341,74 +365,65 @@ class YahooFinanceService:
                     "ma20": ma20_val
                 })
             
-            # Ensure chronological order
             points.sort(key=lambda x: x["time"])
             return points
         except Exception:
-            base = 2940.50 if (symbol.endswith(".NS") or symbol.endswith(".BO")) else 229.35
-            fallback_points = []
-            import math
-            from datetime import datetime, timedelta
-            now = datetime.now()
-            for i in range(30):
-                d_time = now - timedelta(days=30 - i)
-                price = base * (0.92 + (i / 30.0) * 0.12 + (math.sin(i / 2) * 0.01))
-                c_val = round(price, 2)
-                o_val = round(price * (0.995 + (i % 3) * 0.003), 2)
-                h_val = round(max(o_val, c_val) * 1.008, 2)
-                l_val = round(min(o_val, c_val) * 0.992, 2)
-                fallback_points.append({
-                    "time": d_time.strftime("%Y-%m-%d") if timeframe not in ["1D", "1W"] else int(d_time.timestamp()),
-                    "timestamp": f"Day {i+1}",
-                    "date": d_time.strftime("%d %b %Y"),
-                    "price": c_val,
-                    "open": o_val,
-                    "high": h_val,
-                    "low": l_val,
-                    "close": c_val,
-                    "volume": 12500000 + (i * 150000),
-                    "ma20": round(price * 0.995, 2)
-                })
-            return fallback_points
+            return []
 
     @staticmethod
-    def get_financial_ratios(symbol: str) -> Dict[str, Any]:
-        """Fetch financial valuation and profitability ratios for US and Indian equities."""
+    def get_financial_ratios(symbol: str) -> Optional[Dict[str, Any]]:
+        """Fetch key financial valuation ratios dynamically, returning null / N/A for missing metrics."""
         symbol = normalize_symbol(symbol)
         try:
             ticker = yf.Ticker(symbol)
-            info = ticker.info or {}
-            currency = info.get("currency", "INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD")
+            info = {}
+            try:
+                info = ticker.info or {}
+            except Exception:
+                pass
+
+            mcap = None
+            w52_high = None
+            w52_low = None
+            try:
+                mcap = ticker.fast_info.market_cap
+                w52_high = ticker.fast_info.year_high
+                w52_low = ticker.fast_info.year_low
+            except Exception:
+                pass
+
+            if mcap is None:
+                mcap = info.get("marketCap")
+            if w52_high is None:
+                w52_high = info.get("fiftyTwoWeekHigh")
+            if w52_low is None:
+                w52_low = info.get("fiftyTwoWeekLow")
+
+            currency = info.get("currency") or ("INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD")
+
+            pe = info.get("trailingPE")
+            f_pe = info.get("forwardPE")
+            eps = info.get("trailingEps")
+            roe = info.get("returnOnEquity")
+            div_y = info.get("dividendYield")
+            pb = info.get("priceToBook")
+            dte = info.get("debtToEquity")
+            pm = info.get("profitMargins")
 
             return {
                 "symbol": symbol,
                 "company_name": info.get("longName") or info.get("shortName") or symbol,
-                "market_cap": format_large_number(info.get("marketCap"), currency),
-                "pe_ratio": round(float(info.get("trailingPE")), 2) if info.get("trailingPE") else 24.8,
-                "forward_pe": round(float(info.get("forwardPE")), 2) if info.get("forwardPE") else 21.5,
-                "eps": round(float(info.get("trailingEps")), 2) if info.get("trailingEps") else 118.40,
-                "roe": format_percentage(info.get("returnOnEquity")) if info.get("returnOnEquity") else "16.8%",
-                "dividend_yield": format_percentage(info.get("dividendYield")) if info.get("dividendYield") else "0.35%",
-                "pb_ratio": round(float(info.get("priceToBook")), 2) if info.get("priceToBook") else 2.45,
-                "debt_to_equity": format_percentage(info.get("debtToEquity") / 100 if info.get("debtToEquity") else 0.42),
-                "profit_margin": format_percentage(info.get("profitMargins")) if info.get("profitMargins") else "9.8%",
-                "week_52_high": round(float(info.get("fiftyTwoWeekHigh")), 2) if info.get("fiftyTwoWeekHigh") else 3024.90,
-                "week_52_low": round(float(info.get("fiftyTwoWeekLow")), 2) if info.get("fiftyTwoWeekLow") else 2220.30
+                "market_cap": format_large_number(mcap, currency) if mcap else "N/A",
+                "pe_ratio": round(float(pe), 2) if pe is not None else None,
+                "forward_pe": round(float(f_pe), 2) if f_pe is not None else None,
+                "eps": round(float(eps), 2) if eps is not None else None,
+                "roe": format_percentage(roe) if roe is not None else "N/A",
+                "dividend_yield": format_percentage(div_y) if div_y is not None else "N/A",
+                "pb_ratio": round(float(pb), 2) if pb is not None else None,
+                "debt_to_equity": format_percentage(dte / 100 if dte and dte > 5 else dte) if dte is not None else "N/A",
+                "profit_margin": format_percentage(pm) if pm is not None else "N/A",
+                "week_52_high": round(float(w52_high), 2) if w52_high is not None else None,
+                "week_52_low": round(float(w52_low), 2) if w52_low is not None else None
             }
         except Exception:
-            is_inr = symbol.endswith(".NS") or symbol.endswith(".BO")
-            return {
-                "symbol": symbol,
-                "company_name": f"{symbol.split('.')[0]} Ltd.",
-                "market_cap": "₹19.85L Cr" if is_inr else "3.50T",
-                "pe_ratio": 24.8,
-                "forward_pe": 21.5,
-                "eps": 118.40 if is_inr else 6.43,
-                "roe": "16.8%",
-                "dividend_yield": "0.35%",
-                "pb_ratio": 2.45,
-                "debt_to_equity": "0.42",
-                "profit_margin": "9.8%",
-                "week_52_high": 3024.90 if is_inr else 237.23,
-                "week_52_low": 2220.30 if is_inr else 164.08
-            }
+            return None

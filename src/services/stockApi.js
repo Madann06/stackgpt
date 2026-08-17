@@ -219,43 +219,51 @@ export const stockApi = {
     const s = (symbol || 'AAPL').toUpperCase();
     try {
       const [profileRes, priceRes, ratiosRes] = await Promise.all([
-        api.get(`/company/profile/${s}`).catch(() => ({ data: {} })),
-        api.get(`/company/price/${s}`).catch(() => ({ data: {} })),
-        api.get(`/company/ratios/${s}`).catch(() => ({ data: {} }))
+        api.get(`/company/profile/${s}`).catch(() => ({ data: null })),
+        api.get(`/company/price/${s}`).catch(() => ({ data: null })),
+        api.get(`/company/ratios/${s}`).catch(() => ({ data: null }))
       ]);
 
-      const profile = profileRes.data || {};
-      const price = priceRes.data || {};
-      const ratios = ratiosRes.data || {};
-      const mock = MOCK_STOCKS[s] || MOCK_STOCKS['AAPL'];
+      const profile = profileRes.data;
+      const price = priceRes.data;
+      const ratios = ratiosRes.data;
+
+      if (!profile && !price && !ratios) {
+        return null;
+      }
+
+      const pData = price || {};
+      const profData = profile || {};
+      const ratData = ratios || {};
+      const isInr = s.includes('.NS') || s.includes('.BO');
 
       return {
         symbol: s,
-        name: profile.company_name || mock.name,
-        sector: profile.sector || mock.sector,
-        industry: profile.industry || mock.industry,
-        logo: mock.logo,
-        currentPrice: price.price || mock.currentPrice,
-        change: price.change || mock.change,
-        changePercent: price.change_percent || mock.changePercent,
-        isPositive: price.is_positive !== undefined ? price.is_positive : mock.isPositive,
-        currency: profile.currency || price.currency || mock.currency || 'USD',
-        marketCap: ratios.market_cap || mock.marketCap,
-        peRatio: ratios.pe_ratio || mock.peRatio,
-        eps: ratios.eps || mock.eps,
-        roe: ratios.roe || mock.roe,
-        dividendYield: ratios.dividend_yield || mock.dividendYield,
-        pbRatio: ratios.pb_ratio || mock.pbRatio,
-        debtToEquity: ratios.debt_to_equity || mock.debtToEquity,
-        profitMargin: ratios.profit_margin || mock.profitMargin,
-        week52High: ratios.week_52_high || mock.week52High,
-        week52Low: ratios.week_52_low || mock.week52Low,
-        avgVolume: mock.avgVolume || '54.2M',
-        beta: mock.beta || 1.04,
-        aiSummary: profile.summary || mock.aiSummary,
+        name: profData.company_name || pData.company_name || s,
+        sector: profData.sector || 'General',
+        industry: profData.industry || 'Equities',
+        logo: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
+        currentPrice: pData.price ?? profData.current_price ?? 0.0,
+        change: pData.change ?? 0.0,
+        changePercent: pData.change_percent ?? 0.0,
+        isPositive: pData.is_positive ?? true,
+        currency: profData.currency || pData.currency || (isInr ? 'INR' : 'USD'),
+        marketCap: ratData.market_cap || profData.market_cap || 'N/A',
+        peRatio: ratData.pe_ratio ?? 'N/A',
+        eps: ratData.eps ?? 'N/A',
+        roe: ratData.roe || 'N/A',
+        dividendYield: ratData.dividend_yield || 'N/A',
+        pbRatio: ratData.pb_ratio ?? 'N/A',
+        debtToEquity: ratData.debt_to_equity || 'N/A',
+        profitMargin: ratData.profit_margin || 'N/A',
+        week52High: ratData.week_52_high ?? 'N/A',
+        week52Low: ratData.week_52_low ?? 'N/A',
+        avgVolume: 'N/A',
+        beta: 'N/A',
+        aiSummary: profData.summary || `Live stock overview and metrics for ${s}.`,
       };
     } catch (e) {
-      return MOCK_STOCKS[s] || MOCK_STOCKS['AAPL'];
+      return null;
     }
   },
 

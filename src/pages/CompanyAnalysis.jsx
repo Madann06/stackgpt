@@ -43,6 +43,7 @@ const CompanyAnalysis = () => {
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [analysisData, setAnalysisData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
@@ -56,26 +57,42 @@ const CompanyAnalysis = () => {
       setAnalysisData(null);
       setSelectedDuration(null);
       setIsLoading(false);
+      setError(null);
       return;
     }
 
     let isMounted = true;
     const fetchCompanyData = async () => {
       setIsLoading(true);
+      setError(null);
       setAnalysisData(null);
       setSelectedDuration(null);
-      const [details, newsList] = await Promise.all([
-        stockApi.getStockDetails(activeSymbol),
-        stockApi.getStockNews(activeSymbol)
-      ]);
+      try {
+        const [details, newsList] = await Promise.all([
+          stockApi.getStockDetails(activeSymbol),
+          stockApi.getStockNews(activeSymbol)
+        ]);
 
-      if (isMounted) {
-        setStock(details);
-        setNews(newsList);
-        setIsLoading(false);
-        // Record History
-        if (details && addToHistory) {
-          addToHistory({ symbol: details.symbol, name: details.name || details.symbol });
+        if (isMounted) {
+          if (!details || details.error) {
+            setError(`Unable to retrieve market data for ${activeSymbol}. Ticker may be invalid or external data provider rate-limited.`);
+            setStock(null);
+          } else {
+            setStock(details);
+            setNews(newsList || []);
+            if (addToHistory) {
+              addToHistory({ symbol: details.symbol, name: details.name || details.symbol });
+            }
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(`Unable to retrieve market data for ${activeSymbol}. Request failed.`);
+          setStock(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
         }
       }
     };
@@ -139,8 +156,21 @@ const CompanyAnalysis = () => {
 
             {isLoading ? (
               <LoadingSpinner size="large" text={`Loading ${activeSymbol} Market Data...`} />
-            ) : (
-              stock && (
+            ) : error ? (
+              <div className="glass-card rounded-2xl p-12 text-center text-red-400 space-y-3 border border-red-500/30">
+                <ShieldAlert className="w-12 h-12 text-red-400 mx-auto" />
+                <h3 className="text-lg font-bold text-red-300">Unable to Retrieve Market Data</h3>
+                <p className="text-sm text-slate-300 max-w-md mx-auto">{error}</p>
+                <div className="pt-2">
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all"
+                  >
+                    Retry Loading {activeSymbol}
+                  </button>
+                </div>
+              </div>
+            ) : stock ? (
                 <>
                   {/* Company Overview Header */}
                   <StockOverviewCard stock={stock} />

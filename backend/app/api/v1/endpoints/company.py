@@ -42,6 +42,11 @@ def get_company_profile(symbol: str) -> Any:
 def get_stock_price(symbol: str) -> Any:
     """Get current stock price, daily gain/loss, and change percentage."""
     price_data = YahooFinanceService.get_stock_price(symbol)
+    if not price_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Stock price for symbol '{symbol}' not found."
+        )
     return price_data
 
 
@@ -55,7 +60,7 @@ def get_historical_data(
     return {
         "symbol": symbol.upper(),
         "timeframe": timeframe.upper(),
-        "data": points
+        "data": points or []
     }
 
 
@@ -63,6 +68,11 @@ def get_historical_data(
 def get_financial_ratios(symbol: str) -> Any:
     """Get key financial valuation ratios (P/E, EPS, ROE, Market Cap, Div Yield, 52W High/Low)."""
     ratios = YahooFinanceService.get_financial_ratios(symbol)
+    if not ratios:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Financial ratios for symbol '{symbol}' not found."
+        )
     return ratios
 
 

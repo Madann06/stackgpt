@@ -2,13 +2,16 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { UserFeaturesProvider } from './context/UserFeaturesContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
 import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+
 import Dashboard from './pages/Dashboard';
 import CompanyAnalysis from './pages/CompanyAnalysis';
 import DashboardLayout from './components/layout/DashboardLayout';
 
-// New Pages
 import Markets from './pages/Markets';
 import Screener from './pages/Screener';
 import Heatmap from './pages/Heatmap';
@@ -30,34 +33,36 @@ function App() {
       <UserFeaturesProvider>
         <Router>
           <Routes>
+            {/* Public Auth Routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
           
-          {/* Dashboard Layout Routes */}
-          <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
-          <Route path="/markets" element={<DashboardLayout><Markets /></DashboardLayout>} />
-          <Route path="/screener" element={<DashboardLayout><Screener /></DashboardLayout>} />
-          <Route path="/heatmap" element={<DashboardLayout><Heatmap /></DashboardLayout>} />
-          <Route path="/performers" element={<DashboardLayout><TopPerformers /></DashboardLayout>} />
-          <Route path="/sectors" element={<DashboardLayout><Sectors /></DashboardLayout>} />
-          <Route path="/ipo" element={<DashboardLayout><IPO /></DashboardLayout>} />
-          <Route path="/news" element={<DashboardLayout><News /></DashboardLayout>} />
-          <Route path="/regulations" element={<DashboardLayout><Regulations /></DashboardLayout>} />
-          <Route path="/funds" element={<DashboardLayout><MutualFunds /></DashboardLayout>} />
-          <Route path="/ai-research" element={<DashboardLayout><AIResearch /></DashboardLayout>} />
-          <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
-          
-          <Route path="/wishlist" element={<DashboardLayout><Wishlist /></DashboardLayout>} />
-          <Route path="/history" element={<DashboardLayout><History /></DashboardLayout>} />
-          <Route path="/calculator" element={<DashboardLayout><Calculator /></DashboardLayout>} />
-          
-          <Route path="/company" element={<DashboardLayout><CompanyAnalysis /></DashboardLayout>} />
-          <Route path="/company/:symbol" element={<DashboardLayout><CompanyAnalysis /></DashboardLayout>} />
-          
-          {/* Catch-all */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Router>
+            {/* Protected Application Routes */}
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><Dashboard /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/markets" element={<ProtectedRoute><DashboardLayout><Markets /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/screener" element={<ProtectedRoute><DashboardLayout><Screener /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/heatmap" element={<ProtectedRoute><DashboardLayout><Heatmap /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/performers" element={<ProtectedRoute><DashboardLayout><TopPerformers /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/sectors" element={<ProtectedRoute><DashboardLayout><Sectors /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/ipo" element={<ProtectedRoute><DashboardLayout><IPO /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/news" element={<ProtectedRoute><DashboardLayout><News /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/regulations" element={<ProtectedRoute><DashboardLayout><Regulations /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/funds" element={<ProtectedRoute><DashboardLayout><MutualFunds /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/ai-research" element={<ProtectedRoute><DashboardLayout><AIResearch /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/wishlist" element={<ProtectedRoute><DashboardLayout><Wishlist /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/history" element={<ProtectedRoute><DashboardLayout><History /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/calculator" element={<ProtectedRoute><DashboardLayout><Calculator /></DashboardLayout></ProtectedRoute>} />
+            
+            <Route path="/company" element={<ProtectedRoute><DashboardLayout><CompanyAnalysis /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/company/:symbol" element={<ProtectedRoute><DashboardLayout><CompanyAnalysis /></DashboardLayout></ProtectedRoute>} />
+            
+            {/* Catch-all */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Router>
       </UserFeaturesProvider>
     </AuthProvider>
   );

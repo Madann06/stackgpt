@@ -1,40 +1,52 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { TrendingUp, Sparkles, Lock, Mail, User as UserIcon, ArrowRight, ShieldCheck, Cpu, Zap, Check } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { TrendingUp, Sparkles, Lock, Mail, ArrowRight, ShieldCheck, Cpu, Zap, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('alex.vance@financial.ai');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const { login, register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Redirect back to intended protected page or default to /dashboard
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
 
+    if (!email.trim()) {
+      setError('Please enter your email.');
+      return;
+    }
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setError('Please enter a valid email.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      if (isRegisterMode) {
-        if (!fullName.trim()) {
-          setError('Please enter your full name');
-          setIsLoading(false);
-          return;
-        }
-        await register(fullName, email, password);
+      const result = await login(email, password);
+      if (result) {
+        navigate(from, { replace: true });
       } else {
-        await login(email, password);
+        setError('Invalid email or password.');
       }
-      navigate('/dashboard');
     } catch (err) {
-      const msg = err.response?.data?.detail || 'Authentication failed. Please check credentials.';
-      setError(typeof msg === 'string' ? msg : 'Error processing request');
+      const msg = err.response?.data?.detail || 'Invalid email or password.';
+      setError(typeof msg === 'string' ? msg : 'Invalid email or password.');
     } finally {
       setIsLoading(false);
     }
@@ -44,16 +56,14 @@ const Login = () => {
     setError('');
     setIsLoading(true);
     try {
-      // Try registering demo account if first time
       try {
         await register('Demo Analyst', 'demo.analyst@stockai.com', 'password123');
       } catch (e) {
         await login('demo.analyst@stockai.com', 'password123');
       }
-      navigate('/dashboard');
+      navigate(from, { replace: true });
     } catch (e) {
-      await login('alex.vance@financial.ai', 'password123');
-      navigate('/dashboard');
+      setError('Unable to authenticate demo account. Please try registering below.');
     } finally {
       setIsLoading(false);
     }
@@ -61,7 +71,6 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
-      
       {/* Background Glow Orbs */}
       <div className="absolute top-1/4 left-10 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
@@ -81,9 +90,9 @@ const Login = () => {
             </div>
             <div>
               <h1 className="text-2xl font-extrabold text-slate-100 tracking-tight font-mono">
-                Stock<span className="text-blue-500">AI</span> Assistant
+                Stack<span className="text-blue-500">GPT</span>
               </h1>
-              <p className="text-xs text-blue-400 font-mono font-medium">Final-Year Computer Science Project</p>
+              <p className="text-xs text-blue-400 font-mono font-medium">AI Financial Intelligence Platform</p>
             </div>
           </div>
 
@@ -137,62 +146,18 @@ const Login = () => {
           transition={{ duration: 0.4 }}
           className="glass-card rounded-3xl p-8 border border-slate-700/80 shadow-2xl space-y-6 relative"
         >
-          {/* Mode Switcher Tabs */}
-          <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800 font-mono text-xs">
-            <button
-              onClick={() => { setIsRegisterMode(false); setError(''); }}
-              className={`flex-1 py-2 rounded-lg font-bold transition-all ${
-                !isRegisterMode ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => { setIsRegisterMode(true); setError(''); }}
-              className={`flex-1 py-2 rounded-lg font-bold transition-all ${
-                isRegisterMode ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Register
-            </button>
-          </div>
-
-          <div className="text-center lg:text-left">
-            <h2 className="text-2xl font-bold text-slate-100">
-              {isRegisterMode ? 'Create Analyst Account' : 'Analyst Sign In'}
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">
-              {isRegisterMode ? 'Register new credentials to access AI Stock Assistant' : 'Access your AI Stock Research workspace'}
-            </p>
+          <div className="text-center lg:text-left space-y-1">
+            <h2 className="text-2xl font-bold text-slate-100">Welcome Back</h2>
+            <p className="text-xs text-slate-400">Access your AI Stock Research workspace</p>
           </div>
 
           {error && (
-            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium text-center">
+            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium text-center">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Full Name Field (Register mode only) */}
-            {isRegisterMode && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300 block">Full Name</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <UserIcon className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Alex Vance"
-                    className="w-full pl-10 pr-4 py-3 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-mono"
-                    required={isRegisterMode}
-                  />
-                </div>
-              </div>
-            )}
-
             {/* Email Field */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-300 block">Email Address</label>
@@ -215,20 +180,43 @@ const Login = () => {
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <label className="text-xs font-semibold text-slate-300 block">Password</label>
+                <Link to="/forgot-password" className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors">
+                  Forgot Password?
+                </Link>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full pl-10 pr-4 py-3 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-mono"
+                  className="w-full pl-10 pr-10 py-3 bg-slate-900/90 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-mono"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
+            </div>
+
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center justify-between pt-1">
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-900"
+                />
+                Remember me
+              </label>
             </div>
 
             {/* Submit Button */}
@@ -241,12 +229,21 @@ const Login = () => {
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  {isRegisterMode ? 'Register Account' : 'Sign In to Platform'}{' '}
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  Sign In <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>
           </form>
+
+          {/* Create Account Link */}
+          <div className="text-center pt-2">
+            <p className="text-xs text-slate-400">
+              Don't have an account?{' '}
+              <Link to="/register" className="font-bold text-blue-400 hover:text-blue-300 transition-colors">
+                Create Account
+              </Link>
+            </p>
+          </div>
 
           {/* Divider */}
           <div className="relative flex items-center justify-center py-2">
@@ -256,8 +253,9 @@ const Login = () => {
             </span>
           </div>
 
-          {/* Quick Demo Login Button */}
+          {/* Quick Demo Access */}
           <button
+            type="button"
             onClick={handleQuickDemo}
             disabled={isLoading}
             className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 font-semibold rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-2 text-xs"

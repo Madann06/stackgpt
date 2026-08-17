@@ -13,27 +13,31 @@ export const stockApi = {
   },
 
   async login(email, password) {
+    const res = await api.post('/auth/login', { email, password });
+    if (res.data && res.data.access_token) {
+      localStorage.setItem('token', res.data.access_token);
+    }
+    return res.data;
+  },
+
+  async logout() {
     try {
-      const res = await api.post('/auth/login', { email, password });
-      if (res.data && res.data.access_token) {
-        localStorage.setItem('token', res.data.access_token);
-      }
-      return res.data;
+      await api.post('/auth/logout');
     } catch (e) {
-      console.warn('Backend login fallback used:', e);
-      const mockToken = 'mock_jwt_token_' + Date.now();
-      localStorage.setItem('token', mockToken);
-      return { access_token: mockToken, token_type: 'bearer' };
+      // Ignore network errors on logout
+    } finally {
+      localStorage.removeItem('token');
     }
   },
 
+  async forgotPassword(email) {
+    const res = await api.post('/auth/forgot-password', { email });
+    return res.data;
+  },
+
   async getMe() {
-    try {
-      const res = await api.get('/auth/me');
-      return res.data;
-    } catch (e) {
-      return null;
-    }
+    const res = await api.get('/auth/me');
+    return res.data;
   },
 
   // 2. Company Stock Market APIs

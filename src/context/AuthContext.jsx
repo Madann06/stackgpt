@@ -18,15 +18,19 @@ export const AuthProvider = ({ children }) => {
       }
       try {
         const userData = await stockApi.getMe();
-        setUser({
-          id: userData.id,
-          name: userData.full_name,
-          email: userData.email,
-          role: 'Senior Portfolio Analyst',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-          watchlist: ['AAPL', 'NVDA', 'MSFT']
-        });
-        setIsAuthenticated(true);
+        if (userData && userData.email) {
+          setUser({
+            id: userData.id,
+            name: userData.full_name,
+            email: userData.email,
+            role: 'Senior Portfolio Analyst',
+            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+            watchlist: ['AAPL', 'NVDA', 'MSFT', 'SBIN.NS']
+          });
+          setIsAuthenticated(true);
+        } else {
+          throw new Error('Invalid user payload');
+        }
       } catch (e) {
         localStorage.removeItem('token');
         setIsAuthenticated(false);
@@ -42,29 +46,19 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const res = await stockApi.login(email, password);
     if (res && res.access_token) {
-      try {
-        const userData = await stockApi.getMe();
-        setUser({
-          id: userData.id,
-          name: userData.full_name,
-          email: userData.email,
-          role: 'Investment Analyst',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-          watchlist: ['AAPL', 'NVDA', 'MSFT']
-        });
-      } catch (e) {
-        setUser({
-          name: email.split('@')[0].replace('.', ' ').toUpperCase(),
-          email: email,
-          role: 'Investment Analyst',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-          watchlist: ['AAPL', 'NVDA', 'MSFT']
-        });
-      }
+      const uData = res.user;
+      setUser({
+        id: uData?.id || 1,
+        name: uData?.full_name || email.split('@')[0].toUpperCase(),
+        email: uData?.email || email,
+        role: 'Investment Analyst',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+        watchlist: ['AAPL', 'NVDA', 'MSFT', 'SBIN.NS']
+      });
       setIsAuthenticated(true);
-      return true;
+      return res;
     }
-    return false;
+    return null;
   };
 
   const register = async (fullName, email, password) => {
@@ -72,19 +66,24 @@ export const AuthProvider = ({ children }) => {
     if (userRes) {
       return await login(email, password);
     }
-    return false;
+    return null;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await stockApi.logout();
     localStorage.removeItem('token');
     setIsAuthenticated(false);
     setUser(null);
   };
 
+  const forgotPassword = async (email) => {
+    return await stockApi.forgotPassword(email);
+  };
+
   const toggleWatchlist = (symbol) => {
     if (!user) return;
     setUser(prev => {
-      const watchlist = prev.watchlist || [];
+      const watchlist = prev?.watchlist || [];
       const exists = watchlist.includes(symbol);
       const newWatchlist = exists
         ? watchlist.filter(s => s !== symbol)
@@ -94,7 +93,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoadingUser, login, register, logout, toggleWatchlist }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isLoadingUser, login, register, logout, forgotPassword, toggleWatchlist }}>
       {children}
     </AuthContext.Provider>
   );

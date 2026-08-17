@@ -273,7 +273,118 @@ export const stockApi = {
   },
 
   async getMarketIndices() {
-    return MARKET_INDICES;
+    try {
+      const res = await api.get('/market/indices');
+      return res.data;
+    } catch (e) {
+      return MARKET_INDICES;
+    }
+  },
+
+  async getMarketStatus() {
+    try {
+      const res = await api.get('/market/status');
+      return res.data;
+    } catch (e) {
+      return { status: "MARKET CLOSED", ist_time: "Offline", timestamp: 0 };
+    }
+  },
+
+  async getMarketCurrencies() {
+    try {
+      const res = await api.get('/market/currency');
+      return res.data;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async getMarketBreadth() {
+    try {
+      const res = await api.get('/market/breadth');
+      return res.data;
+    } catch (e) {
+      return { status: "Verified data unavailable" };
+    }
+  },
+
+  async getDataStatus() {
+    try {
+      const res = await api.get('/market/data-status');
+      return res.data;
+    } catch (e) {
+      return { provider: "unknown", status: "offline" };
+    }
+  },
+
+  async getLargeCap() {
+    try {
+      const res = await api.get('/market/large-cap');
+      return res.data;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async getMidCap() {
+    try {
+      const res = await api.get('/market/mid-cap');
+      return res.data;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async getSmallCap() {
+    try {
+      const res = await api.get('/market/small-cap');
+      return res.data;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async getAiClassifier(symbol) {
+    try {
+      const res = await api.get(`/company/classifier/${symbol}`);
+      return res.data;
+    } catch (e) {
+      return {
+        symbol,
+        signal: "INSUFFICIENT DATA",
+        score: null,
+        confidence: "LOW",
+        message: "Stock data temporarily unavailable.",
+        status: "DATA UNAVAILABLE"
+      };
+    }
+  },
+
+  async getMarketSectors() {
+    try {
+      const res = await api.get('/market/sectors');
+      return res.data;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async getTopPerformers() {
+    try {
+      const res = await api.get('/market/top-performers');
+      return res.data;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async getMarketHeatmap() {
+    try {
+      const res = await api.get('/market/heatmap');
+      return res.data;
+    } catch (e) {
+      return [];
+    }
   },
 
   // 3. PDF Upload & RAG APIs

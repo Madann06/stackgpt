@@ -29,12 +29,14 @@ import AIChatSection from '../components/AIChatSection';
 import Footer from '../components/Footer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import DurationSelector from '../components/DurationSelector';
+import { useUserFeatures } from '../context/UserFeaturesContext';
 
 import { stockApi } from '../services/stockApi';
 
 const CompanyAnalysis = () => {
   const { symbol } = useParams();
   const navigate = useNavigate();
+  const { addToHistory } = useUserFeatures();
 
   const [stock, setStock] = useState(null);
   const [news, setNews] = useState([]);
@@ -71,12 +73,16 @@ const CompanyAnalysis = () => {
         setStock(details);
         setNews(newsList);
         setIsLoading(false);
+        // Record History
+        if (details && addToHistory) {
+          addToHistory({ symbol: details.symbol, name: details.name || details.symbol });
+        }
       }
     };
 
     fetchCompanyData();
     return () => { isMounted = false; };
-  }, [activeSymbol]);
+  }, [activeSymbol, addToHistory]);
 
   const handleRunAnalysis = async (durationKey) => {
     if (!activeSymbol || !durationKey) return;

@@ -109,4 +109,15 @@ def analyze_stock_get(
     )
     return analysis
 
+from app.services import ai_classifier
 
+@router.get("/classifier/{symbol}")
+async def get_ai_classifier(symbol: str) -> Any:
+    """
+    Get detailed AI Research Signal and scoring factors based on fundamentals and technicals.
+    """
+    try:
+        data = await ai_classifier.fetch_classifier_signal(symbol)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -3,12 +3,13 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, LineChart, TrendingUp, Search, 
   Layers, Database, Newspaper, ShieldAlert, 
-  Wallet, PieChart, Menu, X, Settings, Target
+  Wallet, PieChart, Menu, X, Settings, Target,
+  Star, Clock, Calculator
 } from 'lucide-react';
 
 const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
     { name: 'Markets', path: '/markets', icon: <LineChart size={20} /> },
     { name: 'Screener', path: '/screener', icon: <Search size={20} /> },
     { name: 'Heatmap', path: '/heatmap', icon: <PieChart size={20} /> },
@@ -19,6 +20,12 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
     { name: 'Regulations', path: '/regulations', icon: <ShieldAlert size={20} /> },
     { name: 'Mutual Funds', path: '/funds', icon: <Wallet size={20} /> },
     { name: 'AI Research', path: '/ai-research', icon: <Database size={20} /> }
+  ];
+
+  const userFeatures = [
+    { name: 'Wishlist', path: '/wishlist', icon: <Star size={20} /> },
+    { name: 'History', path: '/history', icon: <Clock size={20} /> },
+    { name: 'Calculator', path: '/calculator', icon: <Calculator size={20} /> }
   ];
 
   return (
@@ -57,6 +64,25 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
           <div className="text-xs font-semibold text-neutral mb-2 uppercase tracking-wider px-3">Menu</div>
           
           {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              onClick={() => setIsMobileOpen(false)}
+              className={({ isActive }) => `
+                flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors
+                ${isActive 
+                  ? 'bg-primary/15 text-primary' 
+                  : 'text-neutral-light hover:bg-white/5 hover:text-white'}
+              `}
+            >
+              {item.icon}
+              <span className="font-medium text-sm">{item.name}</span>
+            </NavLink>
+          ))}
+
+          <div className="mt-4 mb-2 text-xs font-semibold text-neutral uppercase tracking-wider px-3">My Features</div>
+          
+          {userFeatures.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}

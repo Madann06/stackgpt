@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, Search, Bell, User, Clock, AlertCircle } from 'lucide-react';
+import SearchBar from '../SearchBar';
 
 const TopNavbar = ({ setIsMobileOpen }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -35,18 +36,8 @@ const TopNavbar = ({ setIsMobileOpen }) => {
           <Menu size={24} />
         </button>
 
-        <div className="hidden md:flex relative max-w-md w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-light" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search NSE/BSE stocks, mutual funds, IPOs..." 
-            className="w-full bg-background border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary text-white placeholder-neutral-dark"
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
-            <kbd className="hidden lg:inline-flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded text-[10px] text-neutral-light font-mono">
-              CTRL K
-            </kbd>
-          </div>
+        <div className="hidden md:block w-full max-w-md">
+          <SearchBar placeholder="Search NSE/BSE stocks, tickers..." className="w-full" />
         </div>
       </div>
 

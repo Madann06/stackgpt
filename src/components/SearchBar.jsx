@@ -11,6 +11,20 @@ const SearchBar = ({ placeholder = "Search stock symbol or company name (e.g. AA
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const searchRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -78,24 +92,29 @@ const SearchBar = ({ placeholder = "Search stock symbol or company name (e.g. AA
           <Search className="w-5 h-5" />
         </div>
         <input
+          ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query.trim() && setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full pl-11 pr-24 py-3 bg-[#1E293B]/90 border border-slate-700/60 rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500/80 focus:ring-2 focus:ring-blue-500/20 shadow-lg text-sm md:text-base backdrop-blur-md transition-all"
+          className="w-full pl-11 pr-24 py-2.5 bg-[#1E293B]/90 border border-slate-700/60 rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500/80 focus:ring-2 focus:ring-blue-500/20 shadow-lg text-sm md:text-base backdrop-blur-md transition-all"
         />
         
         {/* Right side controls */}
         <div className="absolute inset-y-0 right-0 pr-3 flex items-center gap-2">
-          {query && (
+          {query ? (
             <button
               onClick={() => { setQuery(''); setIsOpen(false); }}
               className="p-1 rounded-full text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
+          ) : (
+            <kbd className="hidden lg:inline-flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded text-[10px] text-slate-400 font-mono">
+              CTRL K
+            </kbd>
           )}
           <span className="hidden sm:flex items-center gap-1 text-[10px] font-mono font-medium px-2 py-1 rounded bg-slate-800 border border-slate-700 text-slate-400">
             <Sparkles className="w-3 h-3 text-blue-400" /> AI SEARCH

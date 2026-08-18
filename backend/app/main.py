@@ -3,11 +3,30 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.database.base import Base
-from app.database.session import engine
+from app.database.session import engine, SessionLocal
+from app.models.user import User
+from app.core.security import get_password_hash
 from app.api.v1.api import api_router
 
 # Automatically create database tables if they do not exist
 Base.metadata.create_all(bind=engine)
+
+# Seed default demo user account if it doesn't exist
+try:
+    with SessionLocal() as db:
+        demo_user = db.query(User).filter(User.email == "demo.analyst@stockai.com").first()
+        if not demo_user:
+            user = User(
+                email="demo.analyst@stockai.com",
+                full_name="Demo Analyst",
+                hashed_password=get_password_hash("password123"),
+                is_active=True
+            )
+            db.add(user)
+            db.commit()
+except Exception as e:
+    print(f"Demo user seeding info: {e}")
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

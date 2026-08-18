@@ -65,10 +65,10 @@ const TopTicker = () => {
   );
 
   return (
-    <div className="h-10 bg-[#0B1220] border-b border-white/5 overflow-hidden flex items-center relative z-20 w-full select-none">
+    <div className="h-9 sm:h-10 bg-[#0B1220] border-b border-white/5 overflow-hidden flex items-center relative z-20 w-full select-none">
       {/* Fixed LIVE Indicator Badge */}
-      <div className="absolute left-0 top-0 bottom-0 bg-[#0B1220] z-20 px-3.5 flex items-center border-r border-white/5 shadow-lg">
-        <span className="text-[10px] font-bold tracking-wider text-slate-300 flex items-center gap-2">
+      <div className="absolute left-0 top-0 bottom-0 bg-[#0B1220] z-20 px-2 sm:px-3.5 flex items-center border-r border-white/5 shadow-lg">
+        <span className="text-[10px] font-bold tracking-wider text-slate-300 flex items-center gap-1.5 sm:gap-2">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
@@ -78,8 +78,8 @@ const TopTicker = () => {
       </div>
       
       {/* Overflow Hidden Continuous Animation Container */}
-      <div className="w-full overflow-hidden flex items-center h-full pl-24">
-        <div className="animate-ticker flex items-center gap-8 shrink-0">
+      <div className="w-full overflow-hidden flex items-center h-full pl-16 sm:pl-20 md:pl-24">
+        <div className="animate-ticker flex items-center gap-6 sm:gap-8 shrink-0">
           {/* Primary Set */}
           {renderTickerTrack()}
           {/* Duplicate Set for Seamless 100% Loop */}

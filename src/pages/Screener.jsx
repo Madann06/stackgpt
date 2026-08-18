@@ -65,8 +65,8 @@ const Screener = () => {
       </div>
 
       {/* Filter Controls Bar */}
-      <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="glass-panel p-4 sm:p-5 rounded-2xl border border-slate-800 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Search Box */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -75,7 +75,7 @@ const Screener = () => {
               placeholder="Search company, symbol, or sector..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-emerald-500 font-mono"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-emerald-500 font-mono min-h-[44px]"
             />
           </div>
 
@@ -84,7 +84,7 @@ const Screener = () => {
             <select
               value={selectedCap}
               onChange={(e) => setSelectedCap(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-emerald-500 font-mono"
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-emerald-500 font-mono min-h-[44px]"
             >
               <option value="ALL">All Market Caps</option>
               <option value="LARGE">Large Cap Only</option>
@@ -100,7 +100,7 @@ const Screener = () => {
               placeholder="Max P/E Ratio (e.g. 25)"
               value={maxPe}
               onChange={(e) => setMaxPe(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-emerald-500 font-mono"
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-emerald-500 font-mono min-h-[44px]"
             />
           </div>
 
@@ -111,7 +111,7 @@ const Screener = () => {
               placeholder="Min ROE % (e.g. 15)"
               value={minRoe}
               onChange={(e) => setMinRoe(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-emerald-500 font-mono"
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-emerald-500 font-mono min-h-[44px]"
             />
           </div>
         </div>
@@ -124,8 +124,9 @@ const Screener = () => {
         </div>
       ) : (
         <div className="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
-          <div className="p-4 border-b border-slate-800 flex justify-between items-center text-xs text-slate-400">
+          <div className="p-3.5 sm:p-4 border-b border-slate-800 flex justify-between items-center text-xs text-slate-400">
             <span>Matching Results: <strong className="text-white font-mono">{filteredStocks.length}</strong> stocks</span>
+            <span className="text-[10px] font-mono text-slate-500 hidden xs:inline">Scroll horizontally for full metrics →</span>
           </div>
 
           <div className="overflow-x-auto">

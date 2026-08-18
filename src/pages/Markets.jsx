@@ -183,12 +183,13 @@ const Markets = () => {
                 <h3 className="font-bold text-white">{selectedIdx.name} Chart</h3>
               </div>
               
-              <div className="flex gap-1 mb-4 bg-background/50 p-1 rounded-lg w-max border border-white/5">
+              <div className="flex gap-1 mb-4 bg-background/50 p-1 rounded-lg w-max max-w-full overflow-x-auto hide-scrollbar border border-white/5">
                 {['1D', '1W', '1M', '3M', '6M', '1Y', '5Y'].map(tf => (
                   <button
                     key={tf}
+                    type="button"
                     onClick={() => handleSelectIndex(selectedIdx, tf)}
-                    className={`px-3 py-1 text-[10px] font-bold rounded transition-colors ${timeframe === tf ? 'bg-primary text-white' : 'text-neutral-light hover:text-white hover:bg-white/5'}`}
+                    className={`px-3 py-1.5 text-[10px] font-bold rounded transition-colors shrink-0 min-h-[36px] ${timeframe === tf ? 'bg-primary text-white' : 'text-neutral-light hover:text-white hover:bg-white/5'}`}
                   >
                     {tf}
                   </button>

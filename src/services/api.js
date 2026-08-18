@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+let rawUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+rawUrl = (rawUrl || '').trim().replace(/\/+$/, '');
+
+// Automatically append /api/v1 if not present in the URL
+if (!rawUrl.endsWith('/api/v1') && !rawUrl.includes('/api/')) {
+  rawUrl += '/api/v1';
+}
+
+export const API_BASE_URL = rawUrl;
 
 // Create Axios Instance
 const api = axios.create({
@@ -8,7 +16,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000,
+  timeout: 60000, // 60s timeout for cloud backend spin-up
 });
 
 // Request Interceptor: Inject JWT Bearer Token

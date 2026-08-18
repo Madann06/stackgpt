@@ -9,11 +9,13 @@ const StockOverviewCard = ({ stock }) => {
 
   const isWatchlisted = user?.watchlist?.includes(stock.symbol);
 
-  // 52 week range progress calculation
-  const low = stock.week52Low || 100;
-  const high = stock.week52High || 200;
-  const current = stock.currentPrice;
-  const rangePercent = Math.min(Math.max(((current - low) / (high - low)) * 100, 0), 100);
+  // Safe numerical extractions
+  const curPrice = typeof stock.currentPrice === 'number' ? stock.currentPrice : (parseFloat(stock.currentPrice) || 0.0);
+  const changeVal = typeof stock.change === 'number' ? stock.change : (parseFloat(stock.change) || 0.0);
+  const changePctVal = typeof stock.changePercent === 'number' ? stock.changePercent : (parseFloat(stock.changePercent) || 0.0);
+  const low = typeof stock.week52Low === 'number' ? stock.week52Low : (parseFloat(stock.week52Low) || (curPrice ? curPrice * 0.85 : 100.0));
+  const high = typeof stock.week52High === 'number' ? stock.week52High : (parseFloat(stock.week52High) || (curPrice ? curPrice * 1.15 : 200.0));
+  const rangePercent = high > low ? Math.min(Math.max(((curPrice - low) / (high - low)) * 100, 0), 100) : 50;
 
   const isINR = stock.currency === 'INR' || stock.symbol?.endsWith('.NS') || stock.symbol?.endsWith('.BO');
   const currencySymbol = isINR ? '₹' : '$';
@@ -86,7 +88,7 @@ const StockOverviewCard = ({ stock }) => {
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Current Price</span>
           <div className="flex items-baseline gap-3 mt-1">
             <span className="text-3xl sm:text-4xl font-extrabold text-slate-100 font-mono tracking-tight">
-              {currencySymbol}{stock.currentPrice.toFixed(2)}
+              {currencySymbol}{curPrice.toFixed(2)}
             </span>
             <div className={`flex items-center gap-1 px-3 py-1 rounded-xl text-sm font-bold font-mono ${
               stock.isPositive 
@@ -94,7 +96,7 @@ const StockOverviewCard = ({ stock }) => {
                 : 'bg-red-500/15 text-red-400 border border-red-500/30'
             }`}>
               {stock.isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-              {stock.isPositive ? '+' : ''}{currencySymbol}{stock.change.toFixed(2)} ({stock.isPositive ? '+' : ''}{stock.changePercent}%)
+              {stock.isPositive ? '+' : ''}{currencySymbol}{changeVal.toFixed(2)} ({stock.isPositive ? '+' : ''}{changePctVal.toFixed(2)}%)
             </div>
           </div>
         </div>

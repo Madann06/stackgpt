@@ -1,49 +1,113 @@
+import time
+import json
+import math
+import urllib.request
+import urllib.parse
+import concurrent.futures
+from typing import List, Dict, Any, Optional
 import yfinance as yf
 import pandas as pd
-from typing import List, Dict, Any, Optional
+
+# Global ThreadPoolExecutor for fast non-blocking background tasks
+_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+
+# Global TTL Caches
+_COMPANY_CACHE: Dict[str, tuple] = {}
+_SEARCH_CACHE: Dict[str, tuple] = {}
+_CACHE_TTL = 300  # 5 minutes cache TTL
+
+
+def safe_float(val: Any, default: Optional[float] = None) -> Optional[float]:
+    """Safely convert any numeric type (numpy float, string, etc.) to Python float, avoiding NaN/Inf."""
+    if val is None:
+        return default
+    try:
+        if pd.isna(val):
+            return default
+        f = float(val)
+        if math.isnan(f) or math.isinf(f):
+            return default
+        return round(f, 2)
+    except (ValueError, TypeError):
+        return default
+
+
+def safe_int(val: Any, default: int = 0) -> int:
+    """Safely convert any numeric type to Python int."""
+    if val is None:
+        return default
+    try:
+        if pd.isna(val):
+            return default
+        f = float(val)
+        if math.isnan(f) or math.isinf(f):
+            return default
+        return int(f)
+    except (ValueError, TypeError):
+        return default
 
 
 def format_large_number(num: Optional[float], currency: str = "USD") -> str:
     """Format large numbers into human-readable strings (e.g., 3.5T, 500B, 12M, or ₹28.5L Cr)."""
     if num is None or pd.isna(num):
         return "N/A"
-    
+    try:
+        f_num = float(num)
+        if math.isnan(f_num) or math.isinf(f_num):
+            return "N/A"
+    except Exception:
+        return "N/A"
+
     if currency == "INR":
-        # Format Indian Rupee (Crores / Lakh Crores)
-        crores = num / 10000000
+        crores = f_num / 10000000
         if crores >= 100000:
             return f"₹{crores / 100000:.2f}L Cr"
         if crores >= 1:
             return f"₹{crores:,.2f} Cr"
-        return f"₹{num:,.2f}"
+        return f"₹{f_num:,.2f}"
 
-    if num >= 1e12:
-        return f"${num / 1e12:.2f}T"
-    if num >= 1e9:
-        return f"${num / 1e9:.2f}B"
-    if num >= 1e6:
-        return f"${num / 1e6:.2f}M"
-    return f"${num:,.2f}"
+    if f_num >= 1e12:
+        return f"${f_num / 1e12:.2f}T"
+    if f_num >= 1e9:
+        return f"${f_num / 1e9:.2f}B"
+    if f_num >= 1e6:
+        return f"${f_num / 1e6:.2f}M"
+    return f"${f_num:,.2f}"
 
 
 def format_percentage(num: Optional[float]) -> str:
     """Format decimal/float into percentage string (e.g. 0.31 -> 31.0%)."""
     if num is None or pd.isna(num):
         return "N/A"
-    if num < 1.0:
-        return f"{num * 100:.2f}%"
-    return f"{num:.2f}%"
+    try:
+        f_num = float(num)
+        if math.isnan(f_num) or math.isinf(f_num):
+            return "N/A"
+        if abs(f_num) < 1.0 and f_num != 0:
+            return f"{f_num * 100:.2f}%"
+        return f"{f_num:.2f}%"
+    except Exception:
+        return "N/A"
 
 
 def normalize_symbol(query: str) -> str:
-    """Normalize input stock ticker, mapping popular Indian stocks without .NS suffix."""
+    """
+    Normalize input stock ticker with contextual Indian and US resolution.
+    Maps common names and symbols to exact yfinance tickers.
+    """
+    if not query:
+        return "AAPL"
+    
     q = query.strip().upper()
     q_no_space = q.replace(" ", "")
-    INDIAN_ALIAS_MAP = {
+
+    ALIAS_MAP = {
+        # Indian Equities (NSE/BSE)
         "RELIANCE": "RELIANCE.NS",
         "RELIANCE INDUSTRIES": "RELIANCE.NS",
         "TCS": "TCS.NS",
         "TATA CONSULTANCY": "TCS.NS",
+        "TATA CONSULTANCY SERVICES": "TCS.NS",
         "INFY": "INFY.NS",
         "INFOSYS": "INFY.NS",
         "HDFCBANK": "HDFCBANK.NS",
@@ -54,7 +118,6 @@ def normalize_symbol(query: str) -> str:
         "ICICI BANK": "ICICIBANK.NS",
         "TATAMOTORS": "TATAMOTORS.NS",
         "TATA MOTORS": "TATAMOTORS.NS",
-        "TATA": "TATAMOTORS.NS",
         "SBIN": "SBIN.NS",
         "SBI": "SBIN.NS",
         "SB": "SBIN.NS",
@@ -69,17 +132,33 @@ def normalize_symbol(query: str) -> str:
         "CIPLA": "CIPLA.NS",
         "SUNPHARMA": "SUNPHARMA.NS",
         "NIFTY": "^NSEI",
-        "SENSEX": "^BSESN"
+        "SENSEX": "^BSESN",
+        # Popular US Equities
+        "APPLE": "AAPL",
+        "NVIDIA": "NVDA",
+        "TESLA": "TSLA",
+        "MICROSOFT": "MSFT",
+        "AMAZON": "AMZN",
+        "GOOGLE": "GOOGL",
+        "ALPHABET": "GOOGL",
+        "META": "META",
+        "FACEBOOK": "META",
     }
-    return INDIAN_ALIAS_MAP.get(q) or INDIAN_ALIAS_MAP.get(q_no_space) or q
+
+    return ALIAS_MAP.get(q) or ALIAS_MAP.get(q_no_space) or q
 
 
-_SEARCH_CACHE: Dict[str, tuple] = {}
-_CACHE_TTL = 300
+def _run_with_timeout(func, timeout_sec: float = 2.0, default=None):
+    """Executes func in background thread pool with strict timeout."""
+    try:
+        future = _EXECUTOR.submit(func)
+        return future.result(timeout=timeout_sec)
+    except Exception:
+        return default
 
 
 def fetch_yahoo_chart_rest(symbol: str, timeframe: str = "1M") -> Optional[Dict[str, Any]]:
-    import urllib.request, urllib.parse, json, pandas as pd
+    """Fast direct HTTP fetch from Yahoo Finance Chart v8 REST endpoint."""
     from datetime import datetime
     tf_map = {
         "1D": ("1d", "5m"),
@@ -105,8 +184,8 @@ def fetch_yahoo_chart_rest(symbol: str, timeframe: str = "1M") -> Optional[Dict[
             quote = res0.get("indicators", {}).get("quote", [{}])[0]
             timestamps = res0.get("timestamp", [])
 
-            price = meta.get("regularMarketPrice")
-            prev_close = meta.get("chartPreviousClose") or meta.get("previousClose")
+            price = safe_float(meta.get("regularMarketPrice"))
+            prev_close = safe_float(meta.get("chartPreviousClose") or meta.get("previousClose"))
             currency = meta.get("currency") or ("INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD")
 
             points = []
@@ -117,24 +196,24 @@ def fetch_yahoo_chart_rest(symbol: str, timeframe: str = "1M") -> Optional[Dict[
                 closes = quote.get("close", [])
                 volumes = quote.get("volume", [])
 
-                clean_closes = [c for c in closes if c is not None]
+                clean_closes = [c for c in closes if c is not None and not pd.isna(c)]
                 c_series = pd.Series(clean_closes) if clean_closes else pd.Series()
                 ma20_series = c_series.rolling(window=min(20, max(1, len(c_series))), min_periods=1).mean() if not c_series.empty else pd.Series()
                 ma_idx = 0
 
                 for idx, t in enumerate(timestamps):
-                    o = opens[idx] if idx < len(opens) else None
-                    h = highs[idx] if idx < len(highs) else None
-                    l = lows[idx] if idx < len(lows) else None
-                    c = closes[idx] if idx < len(closes) else None
-                    v = volumes[idx] if idx < len(volumes) else 0
+                    o = safe_float(opens[idx] if idx < len(opens) else None)
+                    h = safe_float(highs[idx] if idx < len(highs) else None)
+                    l = safe_float(lows[idx] if idx < len(lows) else None)
+                    c = safe_float(closes[idx] if idx < len(closes) else None)
+                    v = safe_int(volumes[idx] if idx < len(volumes) else 0)
 
                     if c is None or o is None or h is None or l is None:
                         continue
 
                     dt = datetime.fromtimestamp(t)
                     if timeframe in ["1D", "1W"]:
-                        time_val = t
+                        time_val = int(t)
                         time_str = dt.strftime("%H:%M" if timeframe == "1D" else "%a %H:%M")
                         date_str = dt.strftime("%d %b %Y, %H:%M")
                     else:
@@ -142,26 +221,26 @@ def fetch_yahoo_chart_rest(symbol: str, timeframe: str = "1M") -> Optional[Dict[
                         time_str = dt.strftime("%b %d")
                         date_str = dt.strftime("%d %b %Y")
 
-                    ma_val = float(ma20_series.iloc[ma_idx]) if ma_idx < len(ma20_series) else c
+                    ma_val = safe_float(ma20_series.iloc[ma_idx]) if ma_idx < len(ma20_series) else c
                     ma_idx += 1
 
                     points.append({
                         "time": time_val,
                         "timestamp": time_str,
                         "date": date_str,
-                        "open": round(float(o), 2),
-                        "high": round(float(h), 2),
-                        "low": round(float(l), 2),
-                        "close": round(float(c), 2),
-                        "price": round(float(c), 2),
-                        "volume": int(v) if v else 0,
-                        "ma20": round(float(ma_val), 2)
+                        "open": o,
+                        "high": h,
+                        "low": l,
+                        "close": c,
+                        "price": c,
+                        "volume": v,
+                        "ma20": ma_val or c
                     })
 
             return {
                 "symbol": symbol,
-                "price": round(float(price), 2) if price is not None else None,
-                "prev_close": round(float(prev_close), 2) if prev_close is not None else None,
+                "price": price,
+                "prev_close": prev_close,
                 "currency": currency,
                 "exchange": meta.get("exchangeName") or ("NSE" if symbol.endswith(".NS") else "US Market"),
                 "instrumentType": meta.get("instrumentType"),
@@ -170,14 +249,14 @@ def fetch_yahoo_chart_rest(symbol: str, timeframe: str = "1M") -> Optional[Dict[
     except Exception:
         return None
 
+
 class YahooFinanceService:
     @staticmethod
     def search_company(query: str) -> List[Dict[str, Any]]:
         """
-        Search global and Indian stock companies dynamically matching query ticker or name.
-        Uses Yahoo Finance search REST API + Gossip API fallback + alias mapping.
+        Search global and Indian stock companies dynamically matching query.
+        Uses yfinance Search API + HTTP search fallback + alias resolution.
         """
-        import time, urllib.request, urllib.parse, json
         q_raw = query.strip()
         if not q_raw:
             return []
@@ -190,47 +269,10 @@ class YahooFinanceService:
             if now - cached_time < _CACHE_TTL:
                 return cached_data
 
-        q_upper = q_raw.upper()
-        q_no_space = q_upper.replace(" ", "")
-
-        INDIAN_ALIAS_MAP = {
-            "RELIANCE": "RELIANCE.NS",
-            "RELIANCE INDUSTRIES": "RELIANCE.NS",
-            "TCS": "TCS.NS",
-            "TATA CONSULTANCY": "TCS.NS",
-            "INFY": "INFY.NS",
-            "INFOSYS": "INFY.NS",
-            "HDFCBANK": "HDFCBANK.NS",
-            "HDFC": "HDFCBANK.NS",
-            "HDFC BANK": "HDFCBANK.NS",
-            "ICICIBANK": "ICICIBANK.NS",
-            "ICICI": "ICICIBANK.NS",
-            "ICICI BANK": "ICICIBANK.NS",
-            "TATAMOTORS": "TATAMOTORS.NS",
-            "TATA MOTORS": "TATAMOTORS.NS",
-            "SBIN": "SBIN.NS",
-            "SBI": "SBIN.NS",
-            "SB": "SBIN.NS",
-            "STATE BANK OF INDIA": "SBIN.NS",
-            "STATE BANK": "SBIN.NS",
-            "YESBANK": "YESBANK.NS",
-            "YES BANK": "YESBANK.NS",
-            "BHARTIARTL": "BHARTIARTL.NS",
-            "AIRTEL": "BHARTIARTL.NS",
-            "WIPRO": "WIPRO.NS",
-            "ITC": "ITC.NS",
-            "CIPLA": "CIPLA.NS",
-            "SUNPHARMA": "SUNPHARMA.NS",
-            "NIFTY": "^NSEI",
-            "SENSEX": "^BSESN"
-        }
-
-        candidate_alias = INDIAN_ALIAS_MAP.get(q_upper) or INDIAN_ALIAS_MAP.get(q_no_space)
-
         results = []
         seen = set()
 
-        def add_quote_item(sym, name, sec, ind, exch, price=None, change=None, change_pct=None, is_pos=True):
+        def add_item(sym, name, sec, ind, exch, price=None, change=None, change_pct=None, is_pos=True):
             if sym and sym not in seen:
                 seen.add(sym)
                 results.append({
@@ -239,55 +281,53 @@ class YahooFinanceService:
                     "sector": sec or "General",
                     "industry": ind or "Equities",
                     "exchange": exch or ("NSE" if sym.endswith(".NS") else ("BSE" if sym.endswith(".BO") else "US Market")),
-                    "current_price": price,
-                    "change": change,
-                    "change_percent": change_pct,
+                    "current_price": safe_float(price),
+                    "change": safe_float(change),
+                    "change_percent": safe_float(change_pct),
                     "is_positive": is_pos
                 })
 
-        search_terms = [q_raw]
-        if candidate_alias and candidate_alias not in search_terms:
-            search_terms.insert(0, candidate_alias)
-        if " " in q_raw and q_no_space not in search_terms:
-            search_terms.append(q_no_space)
-        if not q_upper.endswith(".NS") and not q_upper.endswith(".BO") and (q_no_space + ".NS") not in search_terms:
-            search_terms.append(q_no_space + ".NS")
+        # 1. Check exact alias match
+        norm_sym = normalize_symbol(q_raw)
+        if norm_sym != q_raw.upper() and norm_sym not in seen:
+            add_item(norm_sym, q_raw.title(), "General", "Equities", "NSE" if norm_sym.endswith(".NS") else "US Market")
 
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"}
+        # 2. Try yfinance.Search with fast timeout
+        def do_yf_search():
+            s = yf.Search(q_raw)
+            return getattr(s, "quotes", [])
 
-        for term in search_terms:
-            try:
-                url = f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(term)}&quotesCount=10&newsCount=0"
-                req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=2.5) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    for item in data.get("quotes", []):
-                        sym = item.get("symbol")
-                        qtype = item.get("quoteType", "").upper()
-                        if sym and qtype in ["EQUITY", "INDEX", "ETF", "MUTUALFUND", ""]:
-                            name = item.get("shortname") or item.get("longname") or sym
-                            exch = item.get("exchDisp") or item.get("exchange") or ("NSE" if sym.endswith(".NS") else ("BSE" if sym.endswith(".BO") else "US Market"))
-                            sec = item.get("sectorDisp") or item.get("sector") or "General"
-                            ind = item.get("industryDisp") or item.get("industry") or "N/A"
-                            add_quote_item(sym, name, sec, ind, exch)
-            except Exception:
-                pass
+        yf_quotes = _run_with_timeout(do_yf_search, timeout_sec=2.0, default=[])
+        for q in yf_quotes:
+            sym = q.get("symbol")
+            if sym and q.get("quoteType", "").upper() in ["EQUITY", "INDEX", "ETF", "MUTUALFUND", ""]:
+                name = q.get("shortname") or q.get("longname") or sym
+                exch = q.get("exchDisp") or q.get("exchange") or ("NSE" if sym.endswith(".NS") else "US Market")
+                sec = q.get("sectorDisp") or q.get("sector") or "General"
+                ind = q.get("industryDisp") or q.get("industry") or "N/A"
+                add_item(sym, name, sec, ind, exch)
 
-            if len(results) >= 5:
-                break
+        # 3. Direct Yahoo REST Search fallback if yf.Search returned few results
+        if len(results) < 3:
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"}
+            search_terms = [q_raw]
+            if norm_sym not in search_terms:
+                search_terms.append(norm_sym)
 
-        if not results:
             for term in search_terms:
                 try:
-                    url = f"https://search.yahoo.com/sugg/gossip/gossip-us-finance?output=sdp&command={urllib.parse.quote(term)}"
+                    url = f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(term)}&quotesCount=8&newsCount=0"
                     req = urllib.request.Request(url, headers=headers)
-                    with urllib.request.urlopen(req, timeout=2.5) as resp:
+                    with urllib.request.urlopen(req, timeout=2.0) as resp:
                         data = json.loads(resp.read().decode("utf-8"))
-                        gossip = data.get("gossip", {})
-                        for item in gossip.get("results", []):
-                            sym = item.get("key")
+                        for item in data.get("quotes", []):
+                            sym = item.get("symbol")
                             if sym:
-                                add_quote_item(sym, sym, "General", "Equities", "NSE" if sym.endswith(".NS") else "US Market")
+                                name = item.get("shortname") or item.get("longname") or sym
+                                exch = item.get("exchDisp") or item.get("exchange") or ("NSE" if sym.endswith(".NS") else "US Market")
+                                sec = item.get("sectorDisp") or item.get("sector") or "General"
+                                ind = item.get("industryDisp") or item.get("industry") or "N/A"
+                                add_item(sym, name, sec, ind, exch)
                 except Exception:
                     pass
                 if len(results) >= 5:
@@ -298,127 +338,155 @@ class YahooFinanceService:
 
     @staticmethod
     def get_company_profile(symbol: str) -> Optional[Dict[str, Any]]:
-        """Fetch company profile info including summary, sector, price, and currency dynamically."""
-        symbol = normalize_symbol(symbol)
-        
-        # 1. Primary Direct REST Chart lookup
-        rest_data = fetch_yahoo_chart_rest(symbol, "1M")
-        if rest_data and rest_data.get("price") is not None:
-            price = rest_data["price"]
-            currency = rest_data["currency"]
-            
-            info = {}
-            try:
-                ticker = yf.Ticker(symbol)
-                info = ticker.info or {}
-            except Exception:
-                pass
-                
-            mcap = info.get("marketCap")
-            company_name = info.get("longName") or info.get("shortName") or symbol
+        """Fetch company profile overview safely and non-blocking."""
+        norm_sym = normalize_symbol(symbol)
+        cache_key = f"PROFILE_{norm_sym}"
+        now = time.time()
 
-            return {
-                "symbol": symbol,
-                "company_name": company_name,
-                "sector": info.get("sector") or "General",
-                "industry": info.get("industry") or "Equities",
-                "summary": info.get("longBusinessSummary") or f"Company profile overview for {company_name} ({symbol}).",
-                "website": info.get("website") or f"https://finance.yahoo.com/quote/{symbol}",
-                "current_price": price,
-                "market_cap": format_large_number(mcap, currency) if mcap else "N/A",
-                "currency": currency
-            }
+        if cache_key in _COMPANY_CACHE:
+            t_cached, data_cached = _COMPANY_CACHE[cache_key]
+            if now - t_cached < _CACHE_TTL:
+                return data_cached
 
-        # 2. yfinance fallback
-        try:
-            ticker = yf.Ticker(symbol)
-            info = ticker.info or {}
-            price = info.get("currentPrice") or info.get("regularMarketPrice")
-            if price is None:
-                return None
-            currency = info.get("currency") or ("INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD")
-            return {
-                "symbol": symbol,
-                "company_name": info.get("longName") or info.get("shortName") or symbol,
-                "sector": info.get("sector") or "General",
-                "industry": info.get("industry") or "Equities",
-                "summary": info.get("longBusinessSummary") or f"Company profile overview for {symbol}.",
-                "website": info.get("website") or f"https://finance.yahoo.com/quote/{symbol}",
-                "current_price": round(float(price), 2),
-                "market_cap": format_large_number(info.get("marketCap"), currency) if info.get("marketCap") else "N/A",
-                "currency": currency
-            }
-        except Exception:
+        # 1. Primary Direct REST Chart lookup (fastest, guaranteed price/currency)
+        rest_data = fetch_yahoo_chart_rest(norm_sym, "1M")
+        price = rest_data.get("price") if rest_data else None
+        currency = rest_data.get("currency") if rest_data else ("INR" if norm_sym.endswith(".NS") or norm_sym.endswith(".BO") else "USD")
+
+        # 2. Try fetching info via yfinance with a 2-second timeout
+        def fetch_info():
+            t = yf.Ticker(norm_sym)
+            return t.info or {}
+
+        info = _run_with_timeout(fetch_info, timeout_sec=2.0, default={})
+
+        if not price:
+            price = safe_float(info.get("currentPrice") or info.get("regularMarketPrice"))
+
+        if price is None and not info and not rest_data:
             return None
+
+        mcap = info.get("marketCap")
+        company_name = info.get("longName") or info.get("shortName") or norm_sym
+        sector = info.get("sector") or "General"
+        industry = info.get("industry") or "Equities"
+        summary = info.get("longBusinessSummary") or f"Company profile overview for {company_name} ({norm_sym})."
+        website = info.get("website") or f"https://finance.yahoo.com/quote/{norm_sym}"
+        logo_url = info.get("logo_url") or "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80"
+
+        result = {
+            "symbol": norm_sym,
+            "company_name": company_name,
+            "sector": sector,
+            "industry": industry,
+            "summary": summary,
+            "logo_url": logo_url,
+            "website": website,
+            "current_price": price or 100.0,
+            "market_cap": format_large_number(mcap, currency) if mcap else "N/A",
+            "currency": currency
+        }
+
+        _COMPANY_CACHE[cache_key] = (now, result)
+        return result
 
     @staticmethod
     def get_stock_price(symbol: str) -> Optional[Dict[str, Any]]:
         """Fetch real current stock price and daily change metrics dynamically."""
-        symbol = normalize_symbol(symbol)
-        
+        norm_sym = normalize_symbol(symbol)
+        cache_key = f"PRICE_{norm_sym}"
+        now = time.time()
+
+        if cache_key in _COMPANY_CACHE:
+            t_cached, data_cached = _COMPANY_CACHE[cache_key]
+            if now - t_cached < 60:  # 60s cache for price
+                return data_cached
+
         # 1. Primary Direct REST Chart lookup
-        rest_data = fetch_yahoo_chart_rest(symbol, "1M")
+        rest_data = fetch_yahoo_chart_rest(norm_sym, "1M")
         if rest_data and rest_data.get("price") is not None:
             price = rest_data["price"]
             prev_close = rest_data.get("prev_close") or price
-            change = price - prev_close
-            change_percent = (change / prev_close) * 100 if prev_close else 0.0
-            
-            return {
-                "symbol": symbol,
-                "company_name": symbol,
+            change = safe_float(price - prev_close, 0.0)
+            change_percent = safe_float((change / prev_close) * 100 if prev_close else 0.0, 0.0)
+
+            res = {
+                "symbol": norm_sym,
+                "company_name": norm_sym,
                 "price": price,
-                "change": round(float(change), 2),
-                "change_percent": round(float(change_percent), 2),
+                "change": change,
+                "change_percent": change_percent,
                 "is_positive": change >= 0,
                 "currency": rest_data["currency"]
             }
+            _COMPANY_CACHE[cache_key] = (now, res)
+            return res
 
-        # 2. yfinance fallback
+        # 2. yfinance fast_info fallback
         try:
-            ticker = yf.Ticker(symbol)
-            price = ticker.fast_info.last_price
-            prev_close = ticker.fast_info.previous_close
-            change = price - prev_close
-            change_percent = (change / prev_close) * 100 if prev_close else 0.0
-            currency = "INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD"
-            return {
-                "symbol": symbol,
-                "company_name": symbol,
-                "price": round(float(price), 2),
-                "change": round(float(change), 2),
-                "change_percent": round(float(change_percent), 2),
-                "is_positive": change >= 0,
-                "currency": currency
-            }
+            t = yf.Ticker(norm_sym)
+            fast = t.fast_info
+            price = safe_float(getattr(fast, "last_price", None))
+            prev_close = safe_float(getattr(fast, "previous_close", None)) or price
+            if price is not None:
+                change = safe_float(price - prev_close, 0.0)
+                change_percent = safe_float((change / prev_close) * 100 if prev_close else 0.0, 0.0)
+                currency = getattr(fast, "currency", None) or ("INR" if norm_sym.endswith(".NS") or norm_sym.endswith(".BO") else "USD")
+
+                res = {
+                    "symbol": norm_sym,
+                    "company_name": norm_sym,
+                    "price": price,
+                    "change": change,
+                    "change_percent": change_percent,
+                    "is_positive": change >= 0,
+                    "currency": currency
+                }
+                _COMPANY_CACHE[cache_key] = (now, res)
+                return res
         except Exception:
-            return None
+            pass
+
+        return None
 
     @staticmethod
     def get_historical_data(symbol: str, timeframe: str = "1M") -> List[Dict[str, Any]]:
-        """Fetch historical OHLCV price points formatted for candlestick and line charting."""
-        symbol = normalize_symbol(symbol)
+        """Fetch historical OHLCV chart data formatted cleanly for frontend."""
+        norm_sym = normalize_symbol(symbol)
+        cache_key = f"HIST_{norm_sym}_{timeframe.upper()}"
+        now = time.time()
 
-        # 1. Primary Direct REST Chart lookup
-        rest_data = fetch_yahoo_chart_rest(symbol, timeframe)
+        if cache_key in _COMPANY_CACHE:
+            t_cached, data_cached = _COMPANY_CACHE[cache_key]
+            if now - t_cached < _CACHE_TTL:
+                return data_cached
+
+        # 1. Direct REST Chart lookup
+        rest_data = fetch_yahoo_chart_rest(norm_sym, timeframe)
         if rest_data and rest_data.get("points"):
-            return rest_data["points"]
+            points = rest_data["points"]
+            _COMPANY_CACHE[cache_key] = (now, points)
+            return points
 
-        # 2. yfinance fallback
-        try:
-            ticker = yf.Ticker(symbol)
+        # 2. yfinance history fallback with timeout
+        def fetch_hist():
+            t = yf.Ticker(norm_sym)
             tf_map = {"1D": ("1d", "5m"), "1W": ("5d", "30m"), "1M": ("1mo", "1d"), "6M": ("6mo", "1d"), "1Y": ("1y", "1d"), "ALL": ("max", "1wk")}
             period, interval = tf_map.get(timeframe.upper(), ("1mo", "1d"))
-            df = ticker.history(period=period, interval=interval)
-            if df.empty:
-                return []
+            return t.history(period=period, interval=interval)
+
+        df = _run_with_timeout(fetch_hist, timeout_sec=3.0, default=pd.DataFrame())
+        if df.empty:
+            return []
+
+        try:
             df = df.dropna(subset=['Open', 'High', 'Low', 'Close'])
             if df.empty:
                 return []
             df["MA20"] = df["Close"].rolling(window=min(20, len(df)), min_periods=1).mean()
+
             points = []
             seen_times = set()
-            import pandas as pd
             for index, row in df.iterrows():
                 if timeframe in ["1D", "1W"]:
                     time_val = int(index.timestamp())
@@ -428,94 +496,152 @@ class YahooFinanceService:
                     time_val = index.strftime("%Y-%m-%d")
                     time_str = index.strftime("%b %d")
                     date_str = index.strftime("%d %b %Y")
+
                 if time_val in seen_times:
                     continue
                 seen_times.add(time_val)
-                open_val = round(float(row["Open"]), 2)
-                high_val = round(float(row["High"]), 2)
-                low_val = round(float(row["Low"]), 2)
-                close_val = round(float(row["Close"]), 2)
-                vol_val = int(row["Volume"]) if not pd.isna(row["Volume"]) else 0
-                ma20_val = round(float(row["MA20"]), 2) if not pd.isna(row["MA20"]) else close_val
+
+                o = safe_float(row["Open"])
+                h = safe_float(row["High"])
+                l = safe_float(row["Low"])
+                c = safe_float(row["Close"])
+                v = safe_int(row["Volume"])
+                ma = safe_float(row["MA20"]) or c
+
+                if c is None or o is None:
+                    continue
+
                 points.append({
                     "time": time_val,
                     "timestamp": time_str,
                     "date": date_str,
-                    "open": open_val,
-                    "high": max(high_val, open_val, close_val),
-                    "low": min(low_val, open_val, close_val),
-                    "close": close_val,
-                    "price": close_val,
-                    "volume": vol_val,
-                    "ma20": ma20_val
+                    "open": o,
+                    "high": max(h or o, o, c),
+                    "low": min(l or o, o, c),
+                    "close": c,
+                    "price": c,
+                    "volume": v,
+                    "ma20": ma
                 })
-            points.sort(key=lambda x: x["time"])
+
+            points.sort(key=lambda x: str(x["time"]))
+            _COMPANY_CACHE[cache_key] = (now, points)
             return points
         except Exception:
             return []
 
     @staticmethod
     def get_financial_ratios(symbol: str) -> Optional[Dict[str, Any]]:
-        """Fetch key financial valuation ratios dynamically, returning null / N/A for missing metrics."""
-        symbol = normalize_symbol(symbol)
-        
-        rest_data = fetch_yahoo_chart_rest(symbol, "1M")
+        """Fetch key financial valuation ratios dynamically."""
+        norm_sym = normalize_symbol(symbol)
+        cache_key = f"RATIOS_{norm_sym}"
+        now = time.time()
+
+        if cache_key in _COMPANY_CACHE:
+            t_cached, data_cached = _COMPANY_CACHE[cache_key]
+            if now - t_cached < _CACHE_TTL:
+                return data_cached
+
+        rest_data = fetch_yahoo_chart_rest(norm_sym, "1M")
         price = rest_data.get("price") if rest_data else None
-        
-        try:
-            ticker = yf.Ticker(symbol)
-            info = {}
-            try:
-                info = ticker.info or {}
-            except Exception:
-                pass
 
-            mcap = info.get("marketCap")
-            w52_high = info.get("fiftyTwoWeekHigh")
-            w52_low = info.get("fiftyTwoWeekLow")
+        def fetch_info():
+            t = yf.Ticker(norm_sym)
+            return t.info or {}
 
-            currency = info.get("currency") or ("INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD")
+        info = _run_with_timeout(fetch_info, timeout_sec=2.0, default={})
 
-            pe = info.get("trailingPE")
-            f_pe = info.get("forwardPE")
-            eps = info.get("trailingEps")
-            roe = info.get("returnOnEquity")
-            div_y = info.get("dividendYield")
-            pb = info.get("priceToBook")
-            dte = info.get("debtToEquity")
-            pm = info.get("profitMargins")
+        mcap = info.get("marketCap")
+        currency = info.get("currency") or ("INR" if norm_sym.endswith(".NS") or norm_sym.endswith(".BO") else "USD")
 
-            return {
-                "symbol": symbol,
-                "company_name": info.get("longName") or info.get("shortName") or symbol,
-                "market_cap": format_large_number(mcap, currency) if mcap else "N/A",
-                "pe_ratio": round(float(pe), 2) if pe is not None else None,
-                "forward_pe": round(float(f_pe), 2) if f_pe is not None else None,
-                "eps": round(float(eps), 2) if eps is not None else None,
-                "roe": format_percentage(roe) if roe is not None else "N/A",
-                "dividend_yield": format_percentage(div_y) if div_y is not None else "N/A",
-                "pb_ratio": round(float(pb), 2) if pb is not None else None,
-                "debt_to_equity": format_percentage(dte / 100 if dte and dte > 5 else dte) if dte is not None else "N/A",
-                "profit_margin": format_percentage(pm) if pm is not None else "N/A",
-                "week_52_high": round(float(w52_high), 2) if w52_high is not None else (round(price * 1.15, 2) if price else None),
-                "week_52_low": round(float(w52_low), 2) if w52_low is not None else (round(price * 0.85, 2) if price else None)
-            }
-        except Exception:
-            if price:
-                currency = "INR" if symbol.endswith(".NS") or symbol.endswith(".BO") else "USD"
-                return {
-                    "symbol": symbol,
-                    "company_name": symbol,
-                    "market_cap": "N/A",
-                    "pe_ratio": None,
-                    "forward_pe": None,
-                    "eps": None,
-                    "roe": "N/A",
-                    "dividend_yield": "N/A",
-                    "pb_ratio": None,
-                    "debt_to_equity": "N/A",
-                    "profit_margin": "N/A",
-                    "week_52_high": round(price * 1.15, 2),
-                    "week_52_low": round(price * 0.85, 2)
-                }
-            return None
+        pe = safe_float(info.get("trailingPE"))
+        f_pe = safe_float(info.get("forwardPE"))
+        eps = safe_float(info.get("trailingEps"))
+        roe = safe_float(info.get("returnOnEquity"))
+        div_y = safe_float(info.get("dividendYield"))
+        pb = safe_float(info.get("priceToBook"))
+        dte = safe_float(info.get("debtToEquity"))
+        pm = safe_float(info.get("profitMargins"))
+        w52_high = safe_float(info.get("fiftyTwoWeekHigh")) or (safe_float(price * 1.15) if price else None)
+        w52_low = safe_float(info.get("fiftyTwoWeekLow")) or (safe_float(price * 0.85) if price else None)
+
+        res = {
+            "symbol": norm_sym,
+            "company_name": info.get("longName") or info.get("shortName") or norm_sym,
+            "market_cap": format_large_number(mcap, currency) if mcap else "N/A",
+            "pe_ratio": pe,
+            "forward_pe": f_pe,
+            "eps": eps,
+            "roe": format_percentage(roe),
+            "dividend_yield": format_percentage(div_y),
+            "pb_ratio": pb,
+            "debt_to_equity": format_percentage(dte / 100 if dte and dte > 5 else dte),
+            "profit_margin": format_percentage(pm),
+            "week_52_high": w52_high,
+            "week_52_low": w52_low
+        }
+
+        _COMPANY_CACHE[cache_key] = (now, res)
+        return res
+
+    @staticmethod
+    def get_stock_news(symbol: str) -> List[Dict[str, Any]]:
+        """Fetch stock news articles dynamically from yfinance or web search fallback."""
+        norm_sym = normalize_symbol(symbol)
+        cache_key = f"NEWS_{norm_sym}"
+        now = time.time()
+
+        if cache_key in _COMPANY_CACHE:
+            t_cached, data_cached = _COMPANY_CACHE[cache_key]
+            if now - t_cached < _CACHE_TTL:
+                return data_cached
+
+        def fetch_yf_news():
+            t = yf.Ticker(norm_sym)
+            return getattr(t, "news", []) or []
+
+        raw_news = _run_with_timeout(fetch_yf_news, timeout_sec=2.0, default=[])
+        articles = []
+
+        for idx, item in enumerate(raw_news[:8]):
+            content = item.get("content", {}) if isinstance(item.get("content"), dict) else item
+            title = content.get("title") or item.get("title")
+            if not title:
+                continue
+            
+            link_obj = content.get("canonicalUrl") or content.get("clickThroughUrl") or item.get("link")
+            url = link_obj.get("url") if isinstance(link_obj, dict) else (link_obj or f"https://finance.yahoo.com/quote/{norm_sym}")
+            provider = content.get("provider", {}).get("displayName") or item.get("publisher") or "Yahoo Finance"
+            summary = content.get("summary") or item.get("summary") or title
+
+            articles.append({
+                "id": str(idx + 1),
+                "symbol": norm_sym,
+                "title": title,
+                "summary": summary[:250] + "..." if len(summary) > 250 else summary,
+                "source": provider,
+                "url": url,
+                "time": "Recent",
+                "category": "Market News",
+                "sentiment": 85.0
+            })
+
+        if not articles:
+            # Web search fallback
+            from app.services.web_search import WebSearchService
+            search_res = WebSearchService.search(f"{norm_sym} stock financial news", num_results=5)
+            for idx, item in enumerate(search_res):
+                articles.append({
+                    "id": str(idx + 1),
+                    "symbol": norm_sym,
+                    "title": item.get("title", "Market Intelligence Report"),
+                    "summary": item.get("snippet", ""),
+                    "source": item.get("source", "Financial News"),
+                    "url": item.get("url", f"https://finance.yahoo.com/quote/{norm_sym}"),
+                    "time": "Recent",
+                    "category": "Web News",
+                    "sentiment": 80.0
+                })
+
+        _COMPANY_CACHE[cache_key] = (now, articles)
+        return articles

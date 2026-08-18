@@ -62,14 +62,25 @@ const CompanyAnalysis = () => {
     }
 
     let isMounted = true;
+    let timeoutId = null;
+
     const fetchCompanyData = async () => {
       setIsLoading(true);
       setError(null);
       setAnalysisData(null);
       setSelectedDuration(null);
+
+      // Safety timeout: abort spinner if backend/provider hangs > 12s
+      timeoutId = setTimeout(() => {
+        if (isMounted && isLoading) {
+          setIsLoading(false);
+          setError(`Request timeout loading market data for ${activeSymbol}. Please click retry.`);
+        }
+      }, 12000);
+
       try {
         const detailsPromise = stockApi.getStockDetails(activeSymbol);
-        const newsPromise = typeof stockApi.getStockNews === 'function' ? stockApi.getStockNews(activeSymbol) : Promise.resolve([]);
+        const newsPromise = stockApi.getStockNews(activeSymbol).catch(() => []);
 
         const [detailsResult, newsResult] = await Promise.allSettled([
           detailsPromise,
@@ -86,8 +97,12 @@ const CompanyAnalysis = () => {
           } else {
             setStock(details);
             setNews(Array.isArray(newsList) ? newsList : []);
-            if (addToHistory) {
-              addToHistory({ symbol: details.symbol, name: details.name || details.symbol });
+            if (typeof addToHistory === 'function') {
+              try {
+                addToHistory({ symbol: details.symbol, name: details.name || details.symbol });
+              } catch (e) {
+                // Ignore history save errors
+              }
             }
           }
         }
@@ -97,6 +112,7 @@ const CompanyAnalysis = () => {
           setStock(null);
         }
       } finally {
+        if (timeoutId) clearTimeout(timeoutId);
         if (isMounted) {
           setIsLoading(false);
         }
@@ -104,7 +120,10 @@ const CompanyAnalysis = () => {
     };
 
     fetchCompanyData();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [activeSymbol, addToHistory]);
 
   const handleRunAnalysis = async (durationKey) => {

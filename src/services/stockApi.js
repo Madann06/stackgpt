@@ -239,74 +239,72 @@ export const stockApi = {
       const pData = price || {};
       const profData = profile || {};
       const ratData = ratios || {};
-      const isInr = s.includes('.NS') || s.includes('.BO');
+      const isInr = s.includes('.NS') || s.includes('.BO') || profData.currency === 'INR' || pData.currency === 'INR';
+
+      const curPrice = typeof pData.price === 'number' ? pData.price : (typeof profData.current_price === 'number' ? profData.current_price : (parseFloat(pData.price) || parseFloat(profData.current_price) || 0.0));
+      const changeVal = typeof pData.change === 'number' ? pData.change : (parseFloat(pData.change) || 0.0);
+      const changePctVal = typeof pData.change_percent === 'number' ? pData.change_percent : (parseFloat(pData.change_percent) || 0.0);
+
+      const highVal = typeof ratData.week_52_high === 'number' ? ratData.week_52_high : (parseFloat(ratData.week_52_high) || (curPrice ? curPrice * 1.15 : 0.0));
+      const lowVal = typeof ratData.week_52_low === 'number' ? ratData.week_52_low : (parseFloat(ratData.week_52_low) || (curPrice ? curPrice * 0.85 : 0.0));
 
       return {
         symbol: s,
         name: profData.company_name || pData.company_name || s,
         sector: profData.sector || 'General',
         industry: profData.industry || 'Equities',
-        logo: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
-        currentPrice: pData.price ?? profData.current_price ?? 0.0,
-        change: pData.change ?? 0.0,
-        changePercent: pData.change_percent ?? 0.0,
-        isPositive: pData.is_positive ?? true,
+        logo: profData.logo_url || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
+        currentPrice: curPrice,
+        change: changeVal,
+        changePercent: changePctVal,
+        isPositive: pData.is_positive !== undefined ? pData.is_positive : changeVal >= 0,
         currency: profData.currency || pData.currency || (isInr ? 'INR' : 'USD'),
         marketCap: ratData.market_cap || profData.market_cap || 'N/A',
-        peRatio: ratData.pe_ratio ?? 'N/A',
-        eps: ratData.eps ?? 'N/A',
+        peRatio: ratData.pe_ratio !== undefined && ratData.pe_ratio !== null ? ratData.pe_ratio : 'N/A',
+        eps: ratData.eps !== undefined && ratData.eps !== null ? ratData.eps : 'N/A',
         roe: ratData.roe || 'N/A',
         dividendYield: ratData.dividend_yield || 'N/A',
-        pbRatio: ratData.pb_ratio ?? 'N/A',
+        pbRatio: ratData.pb_ratio !== undefined && ratData.pb_ratio !== null ? ratData.pb_ratio : 'N/A',
         debtToEquity: ratData.debt_to_equity || 'N/A',
         profitMargin: ratData.profit_margin || 'N/A',
-        week52High: ratData.week_52_high ?? 'N/A',
-        week52Low: ratData.week_52_low ?? 'N/A',
+        week52High: highVal,
+        week52Low: lowVal,
         avgVolume: 'N/A',
         beta: 'N/A',
         aiSummary: profData.summary || `Live stock overview and metrics for ${s}.`,
       };
     } catch (e) {
+      console.error("Error in getStockDetails:", e);
       return null;
     }
-  },
-
-  async getStockNews(symbol) {
-    if (!symbol) return [];
-    const s = symbol.toUpperCase();
-    try {
-      const res = await api.get(`/company/news/${s}`);
-      return res.data || [];
-    } catch (e) {
-      return [];
-    }
-  },
-
-
-  async getStockChartData(symbol, timeframe = '1M') {
-    const s = (symbol || 'AAPL').toUpperCase();
-    try {
-      const res = await api.get(`/company/history/${s}?timeframe=${timeframe}`);
-      if (res.data && res.data.data && res.data.data.length > 0) {
-        return res.data.data;
-      }
-    } catch (e) {
-      // Fallback
-    }
-    const mock = MOCK_STOCKS[s] || MOCK_STOCKS['AAPL'];
-    const generateChartData = (await import('../data/mockStockData')).generateChartData;
-    return generateChartData(mock.currentPrice, timeframe, mock.isPositive);
-  },
-
-  async getAllStocks() {
-    return Object.values(MOCK_STOCKS);
   },
 
   async getStockNews(symbol = null) {
     if (!symbol) return MOCK_NEWS;
     const s = symbol.toUpperCase();
+    try {
+      const res = await api.get(`/company/news/${s}`);
+      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+        return res.data.map(item => ({
+          id: item.id || String(Math.random()),
+          symbol: s,
+          title: item.title,
+          summary: item.summary,
+          source: item.source || 'Market News',
+          url: item.url || '#',
+          timeAgo: item.time || 'Recent',
+          sentiment: item.sentiment === 'Bullish' || item.sentiment > 50 ? 'Bullish' : 'Bearish',
+        }));
+      }
+    } catch (e) {
+      // Graceful fallback to mock news filtering
+    }
     const filtered = MOCK_NEWS.filter((n) => n.symbol === s);
     return filtered.length > 0 ? filtered : MOCK_NEWS;
+  },
+
+  async getAllStocks() {
+    return Object.values(MOCK_STOCKS);
   },
 
   async getMarketIndices() {

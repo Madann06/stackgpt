@@ -4,18 +4,6 @@ import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-try:
-    import chromadb
-    from chromadb.config import Settings as ChromaSettings
-except ImportError:
-    chromadb = None
-    ChromaSettings = None
-
-try:
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-except ImportError:
-    RecursiveCharacterTextSplitter = None
-
 from fastapi import HTTPException, status
 
 # Directory setup for persistent ChromaDB storage
@@ -30,16 +18,21 @@ _chroma_client = None
 _collection = None
 
 
+
 def get_chroma_collection():
     """Lazily initialize ChromaDB client and collection."""
     global _chroma_client, _collection
-    if chromadb is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="ChromaDB vector database service is initializing or not installed."
-        )
     if _collection is not None:
         return _collection
+
+    try:
+        import chromadb
+        from chromadb.config import Settings as ChromaSettings
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ChromaDB vector database service is not installed."
+        )
 
     _chroma_client = chromadb.PersistentClient(
         path=str(CHROMA_DB_DIR),
@@ -94,6 +87,14 @@ class RAGService:
             )
 
         collection = get_chroma_collection()
+
+        try:
+            from langchain_text_splitters import RecursiveCharacterTextSplitter
+        except ImportError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="langchain-text-splitters is not installed."
+            )
 
         # Initialize RecursiveCharacterTextSplitter (1000 char size, 200 char overlap)
         text_splitter = RecursiveCharacterTextSplitter(

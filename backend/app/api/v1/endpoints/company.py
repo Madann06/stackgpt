@@ -76,13 +76,6 @@ def get_financial_ratios(symbol: str) -> Any:
     return ratios
 
 
-@router.get("/news/{symbol}")
-def get_stock_news(symbol: str) -> Any:
-    """Get company specific financial news articles."""
-    articles = YahooFinanceService.get_stock_news(symbol)
-    return articles or []
-
-
 @router.get("/confidence/{symbol}")
 def get_confidence_score(
     symbol: str,
@@ -125,7 +118,6 @@ def analyze_stock_get(
         duration=investment_duration
     )
     return analysis
-
 
 from app.services import ai_classifier
 

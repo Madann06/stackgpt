@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { stockApi } from '../../services/stockApi';
 
-const DEFAULT_INDICES = [
+const mockIndices = [
   { symbol: 'SENSEX', value: '82,145.30', change: '+120.50', pct: '+0.15%', isPositive: true },
   { symbol: 'NIFTY 50', value: '25,050.25', change: '+45.10', pct: '+0.18%', isPositive: true },
   { symbol: 'BANK NIFTY', value: '51,320.10', change: '-110.20', pct: '-0.21%', isPositive: false },
@@ -15,75 +14,37 @@ const DEFAULT_INDICES = [
 ];
 
 const TopTicker = () => {
-  const [indices, setIndices] = useState(DEFAULT_INDICES);
-
-  useEffect(() => {
-    let isMounted = true;
-    const fetchIndices = async () => {
-      try {
-        if (typeof stockApi.getMarketIndices === 'function') {
-          const data = await stockApi.getMarketIndices();
-          if (isMounted && Array.isArray(data) && data.length > 0) {
-            const formatted = data.map(item => ({
-              symbol: item.name || item.symbol,
-              value: item.value || item.price,
-              change: item.change,
-              pct: item.percent || item.pct || item.changePercent,
-              isPositive: item.isPositive !== undefined ? item.isPositive : (String(item.change || '').startsWith('+') || parseFloat(item.change) >= 0)
-            }));
-            setIndices(formatted);
-          }
-        }
-      } catch (e) {
-        // Fallback to default indices
-      }
-    };
-
-    fetchIndices();
-    return () => { isMounted = false; };
-  }, []);
-
-  const renderTickerTrack = () => (
-    <div className="flex items-center gap-8 shrink-0">
-      {indices.map((index, i) => (
-        <div key={i} className="flex items-center gap-2 shrink-0">
-          <span className={`text-xs font-semibold tracking-wide ${
-            index.symbol === 'SENSEX' || index.symbol === 'NIFTY 50' 
-              ? 'text-white' 
-              : 'text-slate-300'
-          }`}>
-            {index.symbol}
-          </span>
-          <span className="text-xs font-mono font-medium text-slate-100">{index.value}</span>
-          <span className={`text-xs font-mono flex items-center font-bold ${index.isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {index.isPositive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-            {index.pct}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-
   return (
-    <div className="h-9 sm:h-10 bg-[#0B1220] border-b border-white/5 overflow-hidden flex items-center relative z-20 w-full select-none">
-      {/* Fixed LIVE Indicator Badge */}
-      <div className="absolute left-0 top-0 bottom-0 bg-[#0B1220] z-20 px-2 sm:px-3.5 flex items-center border-r border-white/5 shadow-lg">
-        <span className="text-[10px] font-bold tracking-wider text-slate-300 flex items-center gap-1.5 sm:gap-2">
+    <div className="h-10 bg-background border-b border-white/5 overflow-hidden flex items-center relative z-20">
+      <div className="absolute left-0 bg-background/90 backdrop-blur-sm z-10 px-3 h-full flex items-center border-r border-white/5">
+        <span className="text-[10px] font-bold tracking-wider text-neutral-light flex items-center gap-2">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
           </span>
           LIVE
         </span>
       </div>
       
-      {/* Overflow Hidden Continuous Animation Container */}
-      <div className="w-full overflow-hidden flex items-center h-full pl-16 sm:pl-20 md:pl-24">
-        <div className="animate-ticker flex items-center gap-6 sm:gap-8 shrink-0">
-          {/* Primary Set */}
-          {renderTickerTrack()}
-          {/* Duplicate Set for Seamless 100% Loop */}
-          {renderTickerTrack()}
+      {/* Scroll container */}
+      <div className="flex-1 overflow-x-auto hide-scrollbar pl-24 whitespace-nowrap flex items-center h-full">
+        <div className="flex gap-6 pr-4">
+          {mockIndices.map((index, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className={`text-xs font-semibold ${
+                index.symbol === 'SENSEX' || index.symbol === 'NIFTY 50' 
+                  ? 'text-white' 
+                  : 'text-neutral-light'
+              }`}>
+                {index.symbol}
+              </span>
+              <span className="text-xs text-white">{index.value}</span>
+              <span className={`text-xs flex items-center ${index.isPositive ? 'text-success' : 'text-danger'}`}>
+                {index.isPositive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                {index.pct}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -91,4 +52,3 @@ const TopTicker = () => {
 };
 
 export default TopTicker;
-

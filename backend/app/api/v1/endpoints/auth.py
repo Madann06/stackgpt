@@ -9,7 +9,7 @@ from app.api.deps import get_db, get_current_user
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse
-from app.schemas.auth import Token, LoginRequest, GoogleLoginRequest, ForgotPasswordRequest, ForgotPasswordResponse
+from app.schemas.auth import Token, LoginRequest, ForgotPasswordRequest, ForgotPasswordResponse
 
 router = APIRouter()
 
@@ -122,39 +122,3 @@ def forgot_password(
     return {
         "message": "If an account exists for this email, password reset instructions will be provided."
     }
-
-
-@router.post("/google", response_model=Token)
-def google_login(
-    data: GoogleLoginRequest,
-    db: Session = Depends(get_db)
-) -> Any:
-    """Authenticate or auto-register user via Google OAuth."""
-    clean_email = data.email.strip().lower()
-    user = db.query(User).filter(User.email == clean_email).first()
-    
-    if not user:
-        # Auto-create user account for Google sign-in
-        display_name = data.name.strip() if data.name and data.name.strip() else clean_email.split('@')[0].capitalize()
-        user = User(
-            email=clean_email,
-            full_name=display_name,
-            hashed_password=get_password_hash(secrets.token_urlsafe(32)),
-            is_active=True
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    elif not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user account."
-        )
-
-    access_token = create_access_token(subject=user.id)
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user
-    }
-

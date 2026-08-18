@@ -86,25 +86,3 @@
 .glow-red {
   box-shadow: 0 0 25px rgba(239, 68, 68, 0.25);
 }
-
-/* Live Market Continuous Scrolling Ticker */
-@keyframes ticker-scroll {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-.animate-ticker {
-  display: flex;
-  width: max-content;
-  animation: ticker-scroll 35s linear infinite;
-  will-change: transform;
-}
-
-.animate-ticker:hover {
-  animation-play-state: paused;
-}
-

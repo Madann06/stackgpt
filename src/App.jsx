@@ -49,6 +49,7 @@ function App() {
             <Route path="/news" element={<ProtectedRoute><DashboardLayout><News /></DashboardLayout></ProtectedRoute>} />
             <Route path="/regulations" element={<ProtectedRoute><DashboardLayout><Regulations /></DashboardLayout></ProtectedRoute>} />
             <Route path="/funds" element={<ProtectedRoute><DashboardLayout><MutualFunds /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/funds/:fundId" element={<ProtectedRoute><DashboardLayout><MutualFunds /></DashboardLayout></ProtectedRoute>} />
             <Route path="/ai-research" element={<ProtectedRoute><DashboardLayout><AIResearch /></DashboardLayout></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
             <Route path="/wishlist" element={<ProtectedRoute><DashboardLayout><Wishlist /></DashboardLayout></ProtectedRoute>} />

@@ -20,28 +20,6 @@ export const stockApi = {
     return res.data;
   },
 
-  async googleLogin(userData) {
-    try {
-      const res = await api.post('/auth/google', userData);
-      if (res.data && res.data.access_token) {
-        localStorage.setItem('token', res.data.access_token);
-      }
-      return res.data;
-    } catch (e) {
-      // Fallback for demo / offline resilience
-      const fallbackToken = 'google_session_' + Date.now();
-      localStorage.setItem('token', fallbackToken);
-      return {
-        access_token: fallbackToken,
-        user: {
-          id: 99,
-          email: userData.email,
-          full_name: userData.name || 'Google User',
-        }
-      };
-    }
-  },
-
   async logout() {
     try {
       await api.post('/auth/logout');
@@ -65,48 +43,56 @@ export const stockApi = {
   // 2. Company Stock Market APIs
   async searchStocks(query) {
     if (!query || !query.trim()) return [];
-    const q = query.trim();
     try {
-      const res = await api.get(`/company/search?query=${encodeURIComponent(q)}`);
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        return res.data.map((item) => {
-          const isInr = item.symbol.includes('.NS') || item.symbol.includes('.BO') || item.exchange === 'NSE' || item.exchange === 'BSE';
-          const price = item.current_price !== null && item.current_price !== undefined ? Number(item.current_price) : 0;
-          const changeVal = item.change !== null && item.change !== undefined ? Number(item.change) : 0.0;
-          const changePct = item.change_percent !== null && item.change_percent !== undefined ? Number(item.change_percent) : 0.0;
-          return {
-            symbol: item.symbol,
-            name: item.company_name || item.symbol,
-            sector: item.sector || 'General',
-            industry: item.industry || 'Equities',
-            exchange: item.exchange || (isInr ? 'NSE' : 'US Market'),
-            logo: item.logo_url || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
-            currentPrice: price,
-            change: changeVal,
-            changePercent: changePct,
-            isPositive: item.is_positive !== undefined && item.is_positive !== null ? item.is_positive : changeVal >= 0,
-            currency: isInr ? 'INR' : 'USD',
-          };
-        });
-      }
-      return [];
-    } catch (e) {
-      console.warn("Backend stock search error:", e.message);
-      return [];
-    }
-  },
+      const [stockRes, fundRes] = await Promise.all([
+        api.get(`/company/search?query=${encodeURIComponent(query)}`).catch(() => ({ data: [] })),
+        api.get(`/mutual-funds?search=${encodeURIComponent(query)}`).catch(() => ({ data: [] }))
+      ]);
 
-  async getStockChartData(symbol, timeframe = '1M') {
-    const s = (symbol || 'AAPL').toUpperCase();
-    try {
-      const res = await api.get(`/company/history/${encodeURIComponent(s)}?timeframe=${encodeURIComponent(timeframe)}`);
-      if (res.data && Array.isArray(res.data.data)) {
-        return res.data.data;
-      }
-      return [];
+      const stockResults = (stockRes.data || []).map((item) => {
+        const mock = MOCK_STOCKS[item.symbol] || {};
+        const isInr = item.symbol.includes('.NS') || item.symbol.includes('.BO');
+        const price = item.current_price !== null && item.current_price !== undefined ? Number(item.current_price) : (mock.currentPrice || (isInr ? 1460.0 : 229.35));
+        const changeVal = item.change !== null && item.change !== undefined ? Number(item.change) : (mock.change || 0.0);
+        const changePct = item.change_percent !== null && item.change_percent !== undefined ? Number(item.change_percent) : (mock.changePercent || 0.0);
+        return {
+          symbol: item.symbol,
+          name: item.company_name,
+          sector: item.sector || mock.sector || 'Technology',
+          industry: item.industry || mock.industry || 'General',
+          exchange: item.exchange || mock.exchange || (isInr ? 'NSE' : 'US Market'),
+          logo: mock.logo || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
+          currentPrice: isNaN(price) ? 229.35 : price,
+          change: isNaN(changeVal) ? 0.0 : changeVal,
+          changePercent: isNaN(changePct) ? 0.0 : changePct,
+          isPositive: item.is_positive !== undefined && item.is_positive !== null ? item.is_positive : changeVal >= 0,
+          currency: isInr ? 'INR' : 'USD',
+          type: 'stock'
+        };
+      });
+
+      const fundResults = (fundRes.data || []).map((fund) => ({
+        symbol: fund.id,
+        name: fund.name,
+        sector: `${fund.category} • Mutual Fund`,
+        industry: fund.amc,
+        exchange: 'AMFI',
+        logo: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
+        currentPrice: fund.nav,
+        change: fund.cagr_3y || 0,
+        changePercent: fund.cagr_3y || 0,
+        isPositive: (fund.cagr_3y || 0) >= 0,
+        currency: 'INR',
+        type: 'mutual_fund',
+        fundId: fund.id
+      }));
+
+      return [...fundResults, ...stockResults];
     } catch (e) {
-      console.warn(`Error loading chart data for ${s}:`, e.message);
-      return [];
+      const q = query.trim().toLowerCase();
+      return Object.values(MOCK_STOCKS).filter(
+        (stock) => stock.symbol.toLowerCase().includes(q) || stock.name.toLowerCase().includes(q)
+      );
     }
   },
 
@@ -276,72 +262,74 @@ export const stockApi = {
       const pData = price || {};
       const profData = profile || {};
       const ratData = ratios || {};
-      const isInr = s.includes('.NS') || s.includes('.BO') || profData.currency === 'INR' || pData.currency === 'INR';
-
-      const curPrice = typeof pData.price === 'number' ? pData.price : (typeof profData.current_price === 'number' ? profData.current_price : (parseFloat(pData.price) || parseFloat(profData.current_price) || 0.0));
-      const changeVal = typeof pData.change === 'number' ? pData.change : (parseFloat(pData.change) || 0.0);
-      const changePctVal = typeof pData.change_percent === 'number' ? pData.change_percent : (parseFloat(pData.change_percent) || 0.0);
-
-      const highVal = typeof ratData.week_52_high === 'number' ? ratData.week_52_high : (parseFloat(ratData.week_52_high) || (curPrice ? curPrice * 1.15 : 0.0));
-      const lowVal = typeof ratData.week_52_low === 'number' ? ratData.week_52_low : (parseFloat(ratData.week_52_low) || (curPrice ? curPrice * 0.85 : 0.0));
+      const isInr = s.includes('.NS') || s.includes('.BO');
 
       return {
         symbol: s,
         name: profData.company_name || pData.company_name || s,
         sector: profData.sector || 'General',
         industry: profData.industry || 'Equities',
-        logo: profData.logo_url || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
-        currentPrice: curPrice,
-        change: changeVal,
-        changePercent: changePctVal,
-        isPositive: pData.is_positive !== undefined ? pData.is_positive : changeVal >= 0,
+        logo: 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
+        currentPrice: pData.price ?? profData.current_price ?? 0.0,
+        change: pData.change ?? 0.0,
+        changePercent: pData.change_percent ?? 0.0,
+        isPositive: pData.is_positive ?? true,
         currency: profData.currency || pData.currency || (isInr ? 'INR' : 'USD'),
         marketCap: ratData.market_cap || profData.market_cap || 'N/A',
-        peRatio: ratData.pe_ratio !== undefined && ratData.pe_ratio !== null ? ratData.pe_ratio : 'N/A',
-        eps: ratData.eps !== undefined && ratData.eps !== null ? ratData.eps : 'N/A',
+        peRatio: ratData.pe_ratio ?? 'N/A',
+        eps: ratData.eps ?? 'N/A',
         roe: ratData.roe || 'N/A',
         dividendYield: ratData.dividend_yield || 'N/A',
-        pbRatio: ratData.pb_ratio !== undefined && ratData.pb_ratio !== null ? ratData.pb_ratio : 'N/A',
+        pbRatio: ratData.pb_ratio ?? 'N/A',
         debtToEquity: ratData.debt_to_equity || 'N/A',
         profitMargin: ratData.profit_margin || 'N/A',
-        week52High: highVal,
-        week52Low: lowVal,
+        week52High: ratData.week_52_high ?? 'N/A',
+        week52Low: ratData.week_52_low ?? 'N/A',
         avgVolume: 'N/A',
         beta: 'N/A',
         aiSummary: profData.summary || `Live stock overview and metrics for ${s}.`,
       };
     } catch (e) {
-      console.error("Error in getStockDetails:", e);
       return null;
     }
+  },
+
+  async getStockNews(symbol) {
+    if (!symbol) return [];
+    const s = symbol.toUpperCase();
+    try {
+      const res = await api.get(`/company/news/${s}`);
+      return res.data || [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+
+  async getStockChartData(symbol, timeframe = '1M') {
+    const s = (symbol || 'AAPL').toUpperCase();
+    try {
+      const res = await api.get(`/company/history/${s}?timeframe=${timeframe}`);
+      if (res.data && res.data.data && res.data.data.length > 0) {
+        return res.data.data;
+      }
+    } catch (e) {
+      // Fallback
+    }
+    const mock = MOCK_STOCKS[s] || MOCK_STOCKS['AAPL'];
+    const generateChartData = (await import('../data/mockStockData')).generateChartData;
+    return generateChartData(mock.currentPrice, timeframe, mock.isPositive);
+  },
+
+  async getAllStocks() {
+    return Object.values(MOCK_STOCKS);
   },
 
   async getStockNews(symbol = null) {
     if (!symbol) return MOCK_NEWS;
     const s = symbol.toUpperCase();
-    try {
-      const res = await api.get(`/company/news/${s}`);
-      if (res.data && Array.isArray(res.data) && res.data.length > 0) {
-        return res.data.map(item => ({
-          id: item.id || String(Math.random()),
-          symbol: s,
-          title: item.title,
-          summary: item.summary,
-          source: item.source || 'Market News',
-          url: item.url || '#',
-          timeAgo: item.time || 'Recent',
-          sentiment: item.sentiment === 'Bullish' || item.sentiment > 50 ? 'Bullish' : 'Bearish',
-        }));
-      }
-    } catch (e) {
-      // Graceful fallback to mock news filtering
-    }
     const filtered = MOCK_NEWS.filter((n) => n.symbol === s);
     return filtered.length > 0 ? filtered : MOCK_NEWS;
-  },
-
-  async getAllStocks() {
-    return Object.values(MOCK_STOCKS);
   },
 
   async getMarketIndices() {
@@ -468,6 +456,70 @@ export const stockApi = {
     }
   },
 
+  // 2.5 Mutual Funds APIs
+  async getMutualFunds(category = 'ALL', search = '') {
+    try {
+      const res = await api.get(`/mutual-funds?category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}`);
+      return res.data;
+    } catch (e) {
+      return [];
+    }
+  },
+
+  async getMutualFundDetails(fundId) {
+    try {
+      const res = await api.get(`/mutual-funds/${encodeURIComponent(fundId)}`);
+      return res.data;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  async getFundHoldings(fundId) {
+    try {
+      const res = await api.get(`/mutual-funds/${encodeURIComponent(fundId)}/holdings`);
+      return res.data;
+    } catch (e) {
+      return { holdings: [] };
+    }
+  },
+
+  async getFundSectors(fundId) {
+    try {
+      const res = await api.get(`/mutual-funds/${encodeURIComponent(fundId)}/sectors`);
+      return res.data;
+    } catch (e) {
+      return { sector_allocation: [] };
+    }
+  },
+
+  async getFundPerformance(fundId) {
+    try {
+      const res = await api.get(`/mutual-funds/${encodeURIComponent(fundId)}/performance`);
+      return res.data;
+    } catch (e) {
+      return { performance: {} };
+    }
+  },
+
+  async getFundRisk(fundId) {
+    try {
+      const res = await api.get(`/mutual-funds/${encodeURIComponent(fundId)}/risk`);
+      return res.data;
+    } catch (e) {
+      return { risk_analysis: {} };
+    }
+  },
+
+  async getSimilarFunds(fundId) {
+    try {
+      const res = await api.get(`/mutual-funds/similar/${encodeURIComponent(fundId)}`);
+      return res.data;
+    } catch (e) {
+      return [];
+    }
+  },
+
   // 3. PDF Upload & RAG APIs
   async uploadPdf(file, onProgress) {
     const formData = new FormData();
@@ -511,21 +563,6 @@ export const stockApi = {
     });
     return res.data;
   },
-
-  async askRAG(query, symbol = 'RELIANCE.NS') {
-    return this.queryAiChat(query, null, symbol, false, []);
-  },
-
-  // 5. Backend Health Check
-  async checkHealth() {
-    try {
-      const res = await api.get('/health');
-      return res.data;
-    } catch (e) {
-      return { status: 'error', message: e.message };
-    }
-  },
 };
-
 
 

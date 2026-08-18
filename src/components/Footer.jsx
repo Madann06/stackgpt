@@ -31,53 +31,31 @@ const Footer = () => {
             <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono">Platform Navigation</h3>
             <ul className="space-y-2 text-xs">
               <li>
-                <Link to="/dashboard" className="hover:text-cyan-400 transition-colors">Market Dashboard</Link>
+                <Link to="/dashboard" className="hover:text-blue-400 transition-colors">Market Dashboard</Link>
               </li>
               <li>
-                <Link to="/markets" className="hover:text-cyan-400 transition-colors">Live Indian Markets (NSE/BSE)</Link>
+                <Link to="/company" className="hover:text-blue-400 transition-colors">Company Intelligence Browser</Link>
               </li>
               <li>
-                <Link to="/screener" className="hover:text-cyan-400 transition-colors">AI Stock Screener</Link>
+                <Link to="/company/NVDA" className="hover:text-blue-400 transition-colors">NVIDIA Research</Link>
               </li>
+
               <li>
-                <Link to="/ai-research" className="hover:text-cyan-400 transition-colors">RAG AI Document Research</Link>
+                <Link to="/login" className="hover:text-blue-400 transition-colors">Analyst Sign In</Link>
               </li>
             </ul>
           </div>
 
-          {/* Cloud & Architecture Links */}
+          {/* Tech Stack Badges */}
           <div className="space-y-3">
-            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono">Cloud Architecture</h3>
-            <div className="flex flex-col gap-2 text-xs">
-              <a
-                href="https://github.com/Madann06/stackgpt"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all font-mono text-[11px]"
-              >
-                <Github className="w-4 h-4 text-slate-400" />
-                <span>GitHub Repository</span>
-              </a>
-
-              <a
-                href="https://stackgpt-backend.onrender.com/docs"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/40 text-slate-300 hover:text-cyan-400 transition-all font-mono text-[11px]"
-              >
-                <Terminal className="w-4 h-4 text-cyan-400" />
-                <span>Render API (FastAPI)</span>
-              </a>
-
-              <a
-                href="https://stackgpt.vercel.app"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/40 text-slate-300 hover:text-blue-400 transition-all font-mono text-[11px]"
-              >
-                <Sparkles className="w-4 h-4 text-blue-400" />
-                <span>Vercel App (React+Vite)</span>
-              </a>
+            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono">Frontend Architecture</h3>
+            <div className="flex flex-wrap gap-1.5 text-[11px] font-mono">
+              <span className="px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">React.js</span>
+              <span className="px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">Vite</span>
+              <span className="px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">Tailwind CSS</span>
+              <span className="px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">Framer Motion</span>
+              <span className="px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">Recharts</span>
+              <span className="px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">Lucide React</span>
             </div>
           </div>
 

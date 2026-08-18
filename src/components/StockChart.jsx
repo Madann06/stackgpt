@@ -368,78 +368,76 @@ const StockChart = ({ symbol = 'AAPL', isPositive = true, height = 420 }) => {
       className="glass-card rounded-2xl p-5 border border-slate-700/60 shadow-xl space-y-4"
     >
       {/* Chart Top Control Header */}
-      <div className="flex flex-col gap-3 border-b border-slate-800 pb-3">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-4">
         
         {/* Left Section: Title, Chart Type Toggle & Indicator Overlay Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <BarChart2 className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 shrink-0" />
-            <h2 className="text-xs sm:text-base font-bold text-slate-100 truncate">Historical Price & Technical Analysis</h2>
+            <BarChart2 className="w-5 h-5 text-blue-400" />
+            <h2 className="text-base font-bold text-slate-100">Historical Price Performance & Technical Analysis</h2>
           </div>
 
-          {/* Chart Type Toggle & Overlays */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-[11px] sm:text-xs font-mono">
-              <button
-                type="button"
-                onClick={() => setChartType('candlestick')}
-                className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 min-h-[36px] ${
-                  chartType === 'candlestick'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                }`}
-              >
-                <CandleIcon className="w-3.5 h-3.5" /> Candle
-              </button>
-              <button
-                type="button"
-                onClick={() => setChartType('line')}
-                className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1 min-h-[36px] ${
-                  chartType === 'line'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                }`}
-              >
-                <Activity className="w-3.5 h-3.5" /> Line
-              </button>
-            </div>
+          {/* Chart Type Toggle: Candlestick vs Line */}
+          <div className="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs font-mono">
+            <button
+              type="button"
+              onClick={() => setChartType('candlestick')}
+              className={`px-3 py-1 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
+                chartType === 'candlestick'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <CandleIcon className="w-3.5 h-3.5" /> Candlestick
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartType('line')}
+              className={`px-3 py-1 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${
+                chartType === 'line'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" /> Line
+            </button>
+          </div>
 
-            {/* Indicator Overlays: 20 MA & Volume */}
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setShowMA(!showMA)}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-mono transition-all border min-h-[36px] ${
-                  showMA
-                    ? 'bg-blue-600/20 text-blue-400 border-blue-500/40 font-semibold'
-                    : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'
-                }`}
-              >
-                20 MA
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowVolume(!showVolume)}
-                className={`px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-mono transition-all border min-h-[36px] ${
-                  showVolume
-                    ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/40 font-semibold'
-                    : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'
-                }`}
-              >
-                Volume
-              </button>
-            </div>
+          {/* Indicator Overlays: 20 MA & Volume */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowMA(!showMA)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all border ${
+                showMA
+                  ? 'bg-blue-600/20 text-blue-400 border-blue-500/40 font-semibold'
+                  : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+            >
+              20 MA Line
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowVolume(!showVolume)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all border ${
+                showVolume
+                  ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/40 font-semibold'
+                  : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+            >
+              Volume
+            </button>
           </div>
         </div>
 
-        {/* Right Section: Scrollable Timeframe Buttons (1D, 1W, 1M, 6M, 1Y, ALL) */}
-        <div className="flex items-center bg-slate-900/80 p-1 rounded-xl border border-slate-800 font-mono text-xs overflow-x-auto hide-scrollbar max-w-full">
+        {/* Right Section: Timeframe Buttons (1D, 1W, 1M, 6M, 1Y, ALL) */}
+        <div className="flex items-center bg-slate-900/80 p-1 rounded-xl border border-slate-800 self-start lg:self-auto font-mono text-xs">
           {timeframes.map((tf) => (
             <button
               key={tf}
               type="button"
               onClick={() => setTimeframe(tf)}
-              className={`px-3.5 py-1.5 rounded-lg font-bold transition-all shrink-0 min-h-[36px] ${
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
                 timeframe === tf
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'

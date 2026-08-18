@@ -8,13 +8,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class GoogleLoginRequest(BaseModel):
-    email: EmailStr
-    name: Optional[str] = "Google User"
-    avatar: Optional[str] = None
-    token: Optional[str] = None
-
-
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

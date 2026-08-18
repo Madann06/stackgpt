@@ -90,28 +90,14 @@ const QuickAnalysisPanel = ({ stock, onClose }) => {
   };
 
   return (
-    <>
-      {/* Mobile Drawer Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
-        onClick={onClose}
-      />
-
-      <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl max-h-[85vh] overflow-y-auto bg-[#0B1220] border-t border-white/10 p-5 shadow-2xl lg:static lg:inset-auto lg:z-auto lg:rounded-none lg:border-t-0 lg:border-l lg:w-[350px] lg:p-6 lg:h-[calc(100vh-80px)] lg:sticky lg:top-20">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <h2 className="text-lg lg:text-xl font-bold text-white leading-tight">{stock.name}</h2>
-            <span className="text-xs lg:text-sm font-mono text-neutral-light">{stock.symbol}</span>
-          </div>
-          <button 
-            type="button"
-            aria-label="Close analysis"
-            onClick={onClose} 
-            className="p-2 text-slate-400 hover:text-white rounded-xl bg-white/5 min-h-[44px] min-w-[44px] flex items-center justify-center"
-          >
-            ✕
-          </button>
+    <div className="bg-[#0B1220] border-l border-white/10 w-[350px] p-6 h-[calc(100vh-80px)] overflow-y-auto sticky top-20 hidden lg:block">
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-white leading-tight">{stock.name}</h2>
+          <span className="text-sm font-mono text-neutral-light">{stock.symbol}</span>
         </div>
+        <button onClick={onClose} className="p-1 hover:bg-white/10 rounded">✕</button>
+      </div>
 
       <div className="mb-6 flex justify-between items-end">
         <div>
@@ -190,12 +176,11 @@ const QuickAnalysisPanel = ({ stock, onClose }) => {
         </button>
         <button onClick={toggleWishlist} className={`w-full py-3 font-bold rounded-xl border flex items-center justify-center gap-2 transition-colors ${isWishlisted ? 'border-success text-success bg-success/10' : 'border-white/20 text-white hover:bg-white/5'}`}>
           <Star className={`w-4 h-4 ${isWishlisted ? 'fill-success' : ''}`} />
-          {isWishlisted ? 'In Wishlist' : 'Add to Watchlist'}
+          {isWishlisted ? 'In Wishlist' : 'Add to Wishlist'}
         </button>
       </div>
     </div>
-  </>
-);
+  );
 };
 
 const TopPerformers = () => {

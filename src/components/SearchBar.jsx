@@ -62,17 +62,25 @@ const SearchBar = ({ placeholder = "Search stock symbol or company name (e.g. AA
     return () => clearTimeout(timer);
   }, [query]);
 
-  const handleSelectStock = (symbol) => {
+  const handleSelectStock = (item) => {
     setQuery('');
     setIsOpen(false);
-    navigate(`/company/${symbol}`);
+    if (typeof item === 'object' && item !== null) {
+      if (item.type === 'mutual_fund' || item.fundId) {
+        navigate(`/funds/${item.fundId || item.symbol}`);
+        return;
+      }
+      navigate(`/company/${item.symbol}`);
+      return;
+    }
+    navigate(`/company/${item}`);
   };
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
       setIsOpen(false);
     } else if (e.key === 'Enter' && results.length > 0) {
-      handleSelectStock(results[0].symbol);
+      handleSelectStock(results[0]);
     }
   };
 
@@ -146,7 +154,7 @@ const SearchBar = ({ placeholder = "Search stock symbol or company name (e.g. AA
                 {results.map((stock) => (
                   <button
                     key={stock.symbol}
-                    onClick={() => handleSelectStock(stock.symbol)}
+                    onClick={() => handleSelectStock(stock)}
                     className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-slate-800/80 transition-colors group"
                   >
                     <div className="flex items-center gap-3">

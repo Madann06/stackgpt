@@ -37,14 +37,16 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Enable CORS Middleware for React frontend integration (supports Vercel, Render, local dev)
+# Configure CORS Middleware
+cors_origins = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
+    allow_origin_regex=r"^https:\/\/(.*\.vercel\.app|.*\.onrender\.com)|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_origin_regex=r".*",
 )
 
 # Include API v1 Router
@@ -59,7 +61,16 @@ app.include_router(company.router, prefix="/api/stock", tags=["Stock Analysis (A
 app.include_router(company.router, prefix="/api/company", tags=["Company Data (Alias)"])
 
 
+@app.get("/health", tags=["Health Check"])
+def health():
+    """Simple health-check endpoint for Render / cloud monitoring."""
+    return {"status": "ok", "project": settings.PROJECT_NAME}
 
+
+@app.get(f"{settings.API_V1_STR}/health", tags=["Health Check"])
+def api_v1_health():
+    """API v1 health check endpoint."""
+    return {"status": "ok"}
 
 
 @app.get("/", tags=["Health Check"])
@@ -68,11 +79,15 @@ def root():
         "name": settings.PROJECT_NAME,
         "status": "online",
         "version": "1.0.0",
-        "docs_url": "http://localhost:8000/docs",
-        "api_v1": f"http://localhost:8000{settings.API_V1_STR}"
+        "health": "/health",
+        "docs_url": "/docs",
+        "api_v1": settings.API_V1_STR
     }
 
 
 if __name__ == "__main__":
+    import os
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
+

@@ -50,6 +50,8 @@ const CompanyAnalysis = () => {
 
   const activeSymbol = symbol ? symbol.toUpperCase() : null;
 
+  const [retryCount, setRetryCount] = useState(0);
+
   useEffect(() => {
     if (!activeSymbol) {
       setStock(null);
@@ -70,13 +72,13 @@ const CompanyAnalysis = () => {
       setAnalysisData(null);
       setSelectedDuration(null);
 
-      // Safety timeout: abort spinner if backend/provider hangs > 12s
+      // Safety timeout: stop spinner if request exceeds 15 seconds
       timeoutId = setTimeout(() => {
-        if (isMounted && isLoading) {
+        if (isMounted) {
           setIsLoading(false);
-          setError(`Request timeout loading market data for ${activeSymbol}. Please click retry.`);
+          setError(`Unable to connect to market data provider for ${activeSymbol}. If this is the first cloud request, the server may be spinning up.`);
         }
-      }, 12000);
+      }, 15000);
 
       try {
         const detailsPromise = stockApi.getStockDetails(activeSymbol);
@@ -92,7 +94,7 @@ const CompanyAnalysis = () => {
 
         if (isMounted) {
           if (!details || details.error) {
-            setError(`Unable to retrieve market data for ${activeSymbol}. Ticker may be invalid or external data provider rate-limited.`);
+            setError(`Unable to retrieve live market data for ${activeSymbol}. Please verify the ticker or click retry below.`);
             setStock(null);
           } else {
             setStock(details);
@@ -100,15 +102,13 @@ const CompanyAnalysis = () => {
             if (typeof addToHistory === 'function') {
               try {
                 addToHistory({ symbol: details.symbol, name: details.name || details.symbol });
-              } catch (e) {
-                // Ignore history save errors
-              }
+              } catch (e) {}
             }
           }
         }
       } catch (err) {
         if (isMounted) {
-          setError(`Unable to retrieve market data for ${activeSymbol}. Request failed.`);
+          setError(`Unable to connect to backend for ${activeSymbol}. Connection failed or timed out.`);
           setStock(null);
         }
       } finally {
@@ -124,7 +124,7 @@ const CompanyAnalysis = () => {
       isMounted = false;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [activeSymbol, addToHistory]);
+  }, [activeSymbol, addToHistory, retryCount]);
 
   const handleRunAnalysis = async (durationKey) => {
     if (!activeSymbol || !durationKey) return;
@@ -189,8 +189,8 @@ const CompanyAnalysis = () => {
                 <p className="text-sm text-slate-300 max-w-md mx-auto">{error}</p>
                 <div className="pt-2">
                   <button
-                    onClick={() => window.location.reload()}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all"
+                    onClick={() => setRetryCount(c => c + 1)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md"
                   >
                     Retry Loading {activeSymbol}
                   </button>

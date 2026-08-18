@@ -65,33 +65,48 @@ export const stockApi = {
   // 2. Company Stock Market APIs
   async searchStocks(query) {
     if (!query || !query.trim()) return [];
+    const q = query.trim();
     try {
-      const res = await api.get(`/company/search?query=${encodeURIComponent(query)}`);
-      return res.data.map((item) => {
-        const mock = MOCK_STOCKS[item.symbol] || {};
-        const isInr = item.symbol.includes('.NS') || item.symbol.includes('.BO');
-        const price = item.current_price !== null && item.current_price !== undefined ? Number(item.current_price) : (mock.currentPrice || (isInr ? 1460.0 : 229.35));
-        const changeVal = item.change !== null && item.change !== undefined ? Number(item.change) : (mock.change || 0.0);
-        const changePct = item.change_percent !== null && item.change_percent !== undefined ? Number(item.change_percent) : (mock.changePercent || 0.0);
-        return {
-          symbol: item.symbol,
-          name: item.company_name,
-          sector: item.sector || mock.sector || 'Technology',
-          industry: item.industry || mock.industry || 'General',
-          exchange: item.exchange || mock.exchange || (isInr ? 'NSE' : 'US Market'),
-          logo: mock.logo || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
-          currentPrice: isNaN(price) ? 229.35 : price,
-          change: isNaN(changeVal) ? 0.0 : changeVal,
-          changePercent: isNaN(changePct) ? 0.0 : changePct,
-          isPositive: item.is_positive !== undefined && item.is_positive !== null ? item.is_positive : changeVal >= 0,
-          currency: isInr ? 'INR' : 'USD',
-        };
-      });
+      const res = await api.get(`/company/search?query=${encodeURIComponent(q)}`);
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data.map((item) => {
+          const isInr = item.symbol.includes('.NS') || item.symbol.includes('.BO') || item.exchange === 'NSE' || item.exchange === 'BSE';
+          const price = item.current_price !== null && item.current_price !== undefined ? Number(item.current_price) : 0;
+          const changeVal = item.change !== null && item.change !== undefined ? Number(item.change) : 0.0;
+          const changePct = item.change_percent !== null && item.change_percent !== undefined ? Number(item.change_percent) : 0.0;
+          return {
+            symbol: item.symbol,
+            name: item.company_name || item.symbol,
+            sector: item.sector || 'General',
+            industry: item.industry || 'Equities',
+            exchange: item.exchange || (isInr ? 'NSE' : 'US Market'),
+            logo: item.logo_url || 'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=120&auto=format&fit=crop&q=80',
+            currentPrice: price,
+            change: changeVal,
+            changePercent: changePct,
+            isPositive: item.is_positive !== undefined && item.is_positive !== null ? item.is_positive : changeVal >= 0,
+            currency: isInr ? 'INR' : 'USD',
+          };
+        });
+      }
+      return [];
     } catch (e) {
-      const q = query.trim().toLowerCase();
-      return Object.values(MOCK_STOCKS).filter(
-        (stock) => stock.symbol.toLowerCase().includes(q) || stock.name.toLowerCase().includes(q)
-      );
+      console.warn("Backend stock search error:", e.message);
+      return [];
+    }
+  },
+
+  async getStockChartData(symbol, timeframe = '1M') {
+    const s = (symbol || 'AAPL').toUpperCase();
+    try {
+      const res = await api.get(`/company/history/${encodeURIComponent(s)}?timeframe=${encodeURIComponent(timeframe)}`);
+      if (res.data && Array.isArray(res.data.data)) {
+        return res.data.data;
+      }
+      return [];
+    } catch (e) {
+      console.warn(`Error loading chart data for ${s}:`, e.message);
+      return [];
     }
   },
 
@@ -496,6 +511,21 @@ export const stockApi = {
     });
     return res.data;
   },
+
+  async askRAG(query, symbol = 'RELIANCE.NS') {
+    return this.queryAiChat(query, null, symbol, false, []);
+  },
+
+  // 5. Backend Health Check
+  async checkHealth() {
+    try {
+      const res = await api.get('/health');
+      return res.data;
+    } catch (e) {
+      return { status: 'error', message: e.message };
+    }
+  },
 };
+
 
 

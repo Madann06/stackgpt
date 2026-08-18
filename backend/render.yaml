@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: stackgpt-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: DATABASE_URL
+        value: sqlite:///./sql_app.db
+      - key: BACKEND_CORS_ORIGINS
+        value: https://stackgpt.vercel.app,http://localhost:5173,http://localhost:3000
+      - key: SECRET_KEY
+        generateValue: true

@@ -363,6 +363,15 @@ export const stockApi = {
     }
   },
 
+  async getIPOs() {
+    try {
+      const res = await api.get('/market/ipos');
+      return res.data;
+    } catch (e) {
+      return [];
+    }
+  },
+
   async getMidCap() {
     try {
       const res = await api.get('/market/mid-cap');

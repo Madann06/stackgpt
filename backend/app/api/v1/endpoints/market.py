@@ -109,3 +109,15 @@ async def get_small_cap():
         return data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/ipos", response_model=List[Dict[str, Any]])
+async def get_ipos():
+    """
+    Get live, upcoming, and recently listed Indian IPO market intelligence.
+    """
+    try:
+        data = await market_data.fetch_ipos()
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

@@ -381,20 +381,23 @@ class YahooFinanceService:
         price = rest_data.get("price") if rest_data else None
         currency = rest_data.get("currency") if rest_data else ("INR" if norm_sym.endswith(".NS") or norm_sym.endswith(".BO") else "USD")
 
-        # 2. Try fetching info via yfinance with a 2-second timeout
-        def fetch_info():
+        # 2. Try fetching info and fast_info via yfinance
+        def fetch_ticker_data():
             t = yf.Ticker(norm_sym)
-            return t.info or {}
+            return t.info or {}, t.fast_info
 
-        info = _run_with_timeout(fetch_info, timeout_sec=2.0, default={})
+        info_fast = _run_with_timeout(fetch_ticker_data, timeout_sec=6.0, default=({}, None))
+        info, fast = info_fast if info_fast else ({}, None)
 
+        if not price and fast:
+            price = safe_float(getattr(fast, "last_price", None))
         if not price:
             price = safe_float(info.get("currentPrice") or info.get("regularMarketPrice"))
 
         if price is None and not info and not rest_data:
             return None
 
-        mcap = info.get("marketCap")
+        mcap = getattr(fast, "market_cap", None) or info.get("marketCap")
         company_name = info.get("longName") or info.get("shortName") or norm_sym
         sector = info.get("sector") or "General"
         industry = info.get("industry") or "Equities"
@@ -415,7 +418,8 @@ class YahooFinanceService:
             "currency": currency
         }
 
-        _COMPANY_CACHE[cache_key] = (now, result)
+        if mcap or (price and price > 0):
+            _COMPANY_CACHE[cache_key] = (now, result)
         return result
 
     @staticmethod
@@ -560,7 +564,7 @@ class YahooFinanceService:
 
     @staticmethod
     def get_financial_ratios(symbol: str) -> Optional[Dict[str, Any]]:
-        """Fetch key financial valuation ratios dynamically."""
+        """Fetch key financial valuation ratios dynamically with fast_info and derived metrics."""
         norm_sym = normalize_symbol(symbol)
         cache_key = f"RATIOS_{norm_sym}"
         now = time.time()
@@ -573,25 +577,58 @@ class YahooFinanceService:
         rest_data = fetch_yahoo_chart_rest(norm_sym, "1M")
         price = rest_data.get("price") if rest_data else None
 
-        def fetch_info():
+        def fetch_ticker_data():
             t = yf.Ticker(norm_sym)
-            return t.info or {}
+            info = t.info or {}
+            fast = t.fast_info
+            return info, fast
 
-        info = _run_with_timeout(fetch_info, timeout_sec=2.0, default={})
+        info_fast = _run_with_timeout(fetch_ticker_data, timeout_sec=6.0, default=({}, None))
+        info, fast = info_fast if info_fast else ({}, None)
 
-        mcap = info.get("marketCap")
-        currency = info.get("currency") or ("INR" if norm_sym.endswith(".NS") or norm_sym.endswith(".BO") else "USD")
+        mcap = getattr(fast, "market_cap", None) or info.get("marketCap")
+        currency = getattr(fast, "currency", None) or info.get("currency") or ("INR" if norm_sym.endswith(".NS") or norm_sym.endswith(".BO") else "USD")
 
-        pe = safe_float(info.get("trailingPE"))
+        if not price and fast:
+            price = safe_float(getattr(fast, "last_price", None))
+
+        pe = safe_float(info.get("trailingPE") or info.get("forwardPE"))
         f_pe = safe_float(info.get("forwardPE"))
         eps = safe_float(info.get("trailingEps"))
-        roe = safe_float(info.get("returnOnEquity"))
-        div_y = safe_float(info.get("dividendYield"))
         pb = safe_float(info.get("priceToBook"))
-        dte = safe_float(info.get("debtToEquity"))
-        pm = safe_float(info.get("profitMargins"))
-        w52_high = safe_float(info.get("fiftyTwoWeekHigh")) or (safe_float(price * 1.15) if price else None)
-        w52_low = safe_float(info.get("fiftyTwoWeekLow")) or (safe_float(price * 0.85) if price else None)
+
+        # Calculate / Format ROE (Return on Equity)
+        roe_val = safe_float(info.get("returnOnEquity"))
+        if roe_val is None and pb is not None and pe is not None and pe > 0:
+            roe_val = safe_float(pb / pe)
+        roe_str = format_percentage(roe_val)
+
+        # Dividend yield calculation
+        div_rate = safe_float(info.get("dividendRate"))
+        raw_div_y = safe_float(info.get("dividendYield"))
+        if div_rate and price and price > 0:
+            div_y_str = f"{(div_rate / price) * 100:.2f}%"
+        elif raw_div_y is not None:
+            div_y_str = format_percentage(raw_div_y)
+        else:
+            div_y_str = "N/A"
+
+        # Debt to Equity
+        raw_dte = safe_float(info.get("debtToEquity"))
+        if raw_dte is not None:
+            if raw_dte > 5.0:
+                dte_str = f"{raw_dte:.2f}%"
+            else:
+                dte_str = f"{raw_dte * 100:.2f}%"
+        else:
+            dte_str = "N/A"
+
+        # Profit margin
+        raw_pm = safe_float(info.get("profitMargins"))
+        pm_str = format_percentage(raw_pm)
+
+        w52_high = safe_float(getattr(fast, "year_high", None)) or safe_float(info.get("fiftyTwoWeekHigh")) or (safe_float(price * 1.15) if price else None)
+        w52_low = safe_float(getattr(fast, "year_low", None)) or safe_float(info.get("fiftyTwoWeekLow")) or (safe_float(price * 0.85) if price else None)
 
         res = {
             "symbol": norm_sym,
@@ -600,16 +637,19 @@ class YahooFinanceService:
             "pe_ratio": pe,
             "forward_pe": f_pe,
             "eps": eps,
-            "roe": format_percentage(roe),
-            "dividend_yield": format_percentage(div_y),
+            "roe": roe_str,
+            "dividend_yield": div_y_str,
             "pb_ratio": pb,
-            "debt_to_equity": format_percentage(dte / 100 if dte and dte > 5 else dte),
-            "profit_margin": format_percentage(pm),
+            "debt_to_equity": dte_str,
+            "profit_margin": pm_str,
             "week_52_high": w52_high,
             "week_52_low": w52_low
         }
 
-        _COMPANY_CACHE[cache_key] = (now, res)
+        # Cache only if meaningful data exists
+        if mcap or pe or eps or pb or (price and price > 0):
+            _COMPANY_CACHE[cache_key] = (now, res)
+
         return res
 
     @staticmethod

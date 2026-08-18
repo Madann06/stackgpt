@@ -5,10 +5,31 @@ import { motion } from 'framer-motion';
 const FinancialRatios = ({ stock }) => {
   if (!stock) return null;
 
+  const isINR = stock.currency === 'INR' || stock.symbol?.endsWith('.NS') || stock.symbol?.endsWith('.BO');
+  const currencySymbol = isINR ? '₹' : '$';
+
+  const formatRatioValue = (raw, { isCurrency = false, isMultiplier = false } = {}) => {
+    if (raw === undefined || raw === null || raw === '' || raw === 'N/A' || raw === 'None') {
+      return 'N/A';
+    }
+    const str = String(raw).trim();
+    if (str === 'N/A' || str === 'None' || str === 'null' || str === 'NaN' || str === '$N/A' || str === '₹N/A') {
+      return 'N/A';
+    }
+    if (isMultiplier) {
+      return str.endsWith('x') ? str : `${str}x`;
+    }
+    if (isCurrency) {
+      if (str.startsWith('$') || str.startsWith('₹')) return str;
+      return `${currencySymbol}${str}`;
+    }
+    return str;
+  };
+
   const ratioItems = [
     {
       label: 'Market Cap',
-      value: stock.marketCap,
+      value: formatRatioValue(stock.marketCap),
       category: 'Valuation',
       description: 'Total dollar market value of company equity',
       icon: DollarSign,
@@ -16,7 +37,7 @@ const FinancialRatios = ({ stock }) => {
     },
     {
       label: 'P/E Ratio',
-      value: stock.peRatio ? `${stock.peRatio}x` : 'N/A',
+      value: formatRatioValue(stock.peRatio, { isMultiplier: true }),
       category: 'Valuation',
       description: 'Price to Earnings relative to trailing 12 months',
       icon: Scale,
@@ -24,7 +45,7 @@ const FinancialRatios = ({ stock }) => {
     },
     {
       label: 'EPS (TTM)',
-      value: stock.eps ? `$${stock.eps}` : 'N/A',
+      value: formatRatioValue(stock.eps, { isCurrency: true }),
       category: 'Profitability',
       description: 'Diluted Earnings Per Share over last 4 quarters',
       icon: TrendingUp,
@@ -32,7 +53,7 @@ const FinancialRatios = ({ stock }) => {
     },
     {
       label: 'Return on Equity (ROE)',
-      value: stock.roe || 'N/A',
+      value: formatRatioValue(stock.roe),
       category: 'Profitability',
       description: 'Net income returned as percentage of shareholder equity',
       icon: Percent,
@@ -40,7 +61,7 @@ const FinancialRatios = ({ stock }) => {
     },
     {
       label: 'Dividend Yield',
-      value: stock.dividendYield || 'N/A',
+      value: formatRatioValue(stock.dividendYield),
       category: 'Income',
       description: 'Annual dividend payouts relative to stock price',
       icon: PieChart,
@@ -48,7 +69,7 @@ const FinancialRatios = ({ stock }) => {
     },
     {
       label: 'Profit Margin',
-      value: stock.profitMargin || 'N/A',
+      value: formatRatioValue(stock.profitMargin),
       category: 'Efficiency',
       description: 'Net profit percentage generated per dollar revenue',
       icon: Activity,
@@ -56,7 +77,7 @@ const FinancialRatios = ({ stock }) => {
     },
     {
       label: 'P/B Ratio',
-      value: stock.pbRatio ? `${stock.pbRatio}x` : 'N/A',
+      value: formatRatioValue(stock.pbRatio, { isMultiplier: true }),
       category: 'Valuation',
       description: 'Price to Book ratio relative to tangible net assets',
       icon: Scale,
@@ -64,7 +85,7 @@ const FinancialRatios = ({ stock }) => {
     },
     {
       label: 'Debt to Equity',
-      value: stock.debtToEquity || 'N/A',
+      value: formatRatioValue(stock.debtToEquity),
       category: 'Leverage',
       description: 'Total liabilities divided by total shareholder equity',
       icon: Scale,

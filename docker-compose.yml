@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: stackgpt_postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
@@ -16,13 +16,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - app_network
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: stackgpt_backend
-    restart: always
+    restart: unless-stopped
     environment:
       - PROJECT_NAME=AI Stock Research Assistant Backend
       - API_V1_STR=/api/v1
@@ -39,6 +41,8 @@ services:
     volumes:
       - backend_uploads:/app/uploads
       - backend_chromadb:/app/chroma_db
+    networks:
+      - app_network
 
   frontend:
     build:
@@ -47,14 +51,20 @@ services:
       args:
         VITE_API_BASE_URL: /api/v1
     container_name: stackgpt_frontend
-    restart: always
+    restart: unless-stopped
     ports:
-      - "3000:80"
       - "80:80"
+      - "3000:80"
     depends_on:
       - backend
+    networks:
+      - app_network
 
 volumes:
   postgres_data:
   backend_uploads:
   backend_chromadb:
+
+networks:
+  app_network:
+    driver: bridge

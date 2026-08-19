@@ -177,10 +177,10 @@ def forgot_password(
     return {
         "message": "If an account exists for this email, password reset instructions have been generated."
     }
-<<<<<<< HEAD
 
 
 # =====================================================================
+
 # Google OAuth 2.0 Endpoints
 # =====================================================================
 

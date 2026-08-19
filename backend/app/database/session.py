@@ -12,7 +12,6 @@ db_url = settings.DATABASE_URL or ""
 # Production database safety verification
 is_production = settings.ENVIRONMENT.lower() == "production" or bool(os.getenv("RENDER"))
 if is_production and (not db_url or "sqlite" in db_url):
-    # If explicitly in production on Render/cloud, enforce managed database URI
     logger.warning(
         "CRITICAL DATABASE WARNING: Production environment detected without external PostgreSQL DATABASE_URL. "
         "SQLite on Render is ephemeral. Ensure DATABASE_URL is set in Render environment variables."
@@ -33,6 +32,7 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 
 def get_db() -> Generator:

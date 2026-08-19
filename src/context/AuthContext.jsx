@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { stockApi } from '../services/stockApi';
 
 const AuthContext = createContext(null);
@@ -59,7 +59,6 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } catch (err) {
-        // Clear invalid or expired session
         if (err.response && err.response.status === 401) {
           localStorage.removeItem('token');
           localStorage.removeItem('user_profile');
@@ -184,9 +183,7 @@ export const AuthProvider = ({ children }) => {
       const newWatchlist = exists
         ? watchlist.filter(s => s !== symbol)
         : [...watchlist, symbol];
-      const updated = { ...prev, watchlist: newWatchlist };
-      localStorage.setItem('user_profile', JSON.stringify(updated));
-      return updated;
+      return { ...prev, watchlist: newWatchlist };
     });
   };
 
@@ -210,4 +207,5 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+
 

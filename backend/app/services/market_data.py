@@ -221,11 +221,40 @@ async def fetch_top_performers() -> List[Dict[str, Any]]:
 
 async def fetch_heatmap_data() -> List[Dict[str, Any]]:
     basket = [
-        {"symbol": "RELIANCE.NS", "sector": "Energy"},
-        {"symbol": "TCS.NS", "sector": "IT"},
-        {"symbol": "HDFCBANK.NS", "sector": "Financials"},
-        {"symbol": "INFY.NS", "sector": "IT"},
-        {"symbol": "ITC.NS", "sector": "FMCG"}
+        {"symbol": "RELIANCE.NS", "name": "Reliance Industries", "sector": "ENERGY", "market_cap_category": "LARGE CAP", "market_cap_cr": 1960000},
+        {"symbol": "TCS.NS", "name": "Tata Consultancy Services", "sector": "IT", "market_cap_category": "LARGE CAP", "market_cap_cr": 1480000},
+        {"symbol": "HDFCBANK.NS", "name": "HDFC Bank", "sector": "BANKING", "market_cap_category": "LARGE CAP", "market_cap_cr": 1250000},
+        {"symbol": "INFY.NS", "name": "Infosys", "sector": "IT", "market_cap_category": "LARGE CAP", "market_cap_cr": 720000},
+        {"symbol": "ICICIBANK.NS", "name": "ICICI Bank", "sector": "BANKING", "market_cap_category": "LARGE CAP", "market_cap_cr": 850000},
+        {"symbol": "SBIN.NS", "name": "State Bank of India", "sector": "BANKING", "market_cap_category": "LARGE CAP", "market_cap_cr": 710000},
+        {"symbol": "BHARTIARTL.NS", "name": "Bharti Airtel", "sector": "TELECOM", "market_cap_category": "LARGE CAP", "market_cap_cr": 920000},
+        {"symbol": "ITC.NS", "name": "ITC Limited", "sector": "FMCG", "market_cap_category": "LARGE CAP", "market_cap_cr": 580000},
+        {"symbol": "LT.NS", "name": "Larsen & Toubro", "sector": "INDUSTRIALS", "market_cap_category": "LARGE CAP", "market_cap_cr": 510000},
+        {"symbol": "HINDUNILVR.NS", "name": "Hindustan Unilever", "sector": "FMCG", "market_cap_category": "LARGE CAP", "market_cap_cr": 560000},
+        {"symbol": "SUNPHARMA.NS", "name": "Sun Pharma", "sector": "PHARMA", "market_cap_category": "LARGE CAP", "market_cap_cr": 410000},
+        {"symbol": "TATAMOTORS.NS", "name": "Tata Motors", "sector": "AUTO", "market_cap_category": "LARGE CAP", "market_cap_cr": 350000},
+        {"symbol": "M&M.NS", "name": "Mahindra & Mahindra", "sector": "AUTO", "market_cap_category": "LARGE CAP", "market_cap_cr": 340000},
+        {"symbol": "NTPC.NS", "name": "NTPC Limited", "sector": "ENERGY", "market_cap_category": "LARGE CAP", "market_cap_cr": 380000},
+        {"symbol": "ONGC.NS", "name": "ONGC", "sector": "ENERGY", "market_cap_category": "LARGE CAP", "market_cap_cr": 360000},
+        {"symbol": "TATASTEEL.NS", "name": "Tata Steel", "sector": "METALS", "market_cap_category": "LARGE CAP", "market_cap_cr": 190000},
+        {"symbol": "DLF.NS", "name": "DLF Limited", "sector": "REALTY", "market_cap_category": "LARGE CAP", "market_cap_cr": 210000},
+        {"symbol": "TITAN.NS", "name": "Titan Company", "sector": "CONSUMER", "market_cap_category": "LARGE CAP", "market_cap_cr": 310000},
+        {"symbol": "BAJFINANCE.NS", "name": "Bajaj Finance", "sector": "FINANCIAL SERVICES", "market_cap_category": "LARGE CAP", "market_cap_cr": 430000},
+        {"symbol": "TVSMOTOR.NS", "name": "TVS Motor", "sector": "AUTO", "market_cap_category": "MID CAP", "market_cap_cr": 115000},
+        {"symbol": "AUBANK.NS", "name": "AU Small Finance Bank", "sector": "BANKING", "market_cap_category": "MID CAP", "market_cap_cr": 48000},
+        {"symbol": "FEDERALBNK.NS", "name": "Federal Bank", "sector": "BANKING", "market_cap_category": "MID CAP", "market_cap_cr": 45000},
+        {"symbol": "MRF.NS", "name": "MRF Tyres", "sector": "AUTO", "market_cap_category": "MID CAP", "market_cap_cr": 58000},
+        {"symbol": "VOLTAS.NS", "name": "Voltas Limited", "sector": "CONSUMER", "market_cap_category": "MID CAP", "market_cap_cr": 52000},
+        {"symbol": "CUMMINSIND.NS", "name": "Cummins India", "sector": "INDUSTRIALS", "market_cap_category": "MID CAP", "market_cap_cr": 95000},
+        {"symbol": "ASHOKLEY.NS", "name": "Ashok Leyland", "sector": "AUTO", "market_cap_category": "MID CAP", "market_cap_cr": 64000},
+        {"symbol": "HINDPETRO.NS", "name": "Hindustan Petroleum", "sector": "ENERGY", "market_cap_category": "MID CAP", "market_cap_cr": 78000},
+        {"symbol": "JUBLFOOD.NS", "name": "Jubilant FoodWorks", "sector": "CONSUMER", "market_cap_category": "MID CAP", "market_cap_cr": 38000},
+        {"symbol": "BSE.NS", "name": "BSE Limited", "sector": "FINANCIAL SERVICES", "market_cap_category": "SMALL CAP", "market_cap_cr": 32000},
+        {"symbol": "CDSL.NS", "name": "CDSL India", "sector": "FINANCIAL SERVICES", "market_cap_category": "SMALL CAP", "market_cap_cr": 28000},
+        {"symbol": "CAMS.NS", "name": "CAMS India", "sector": "FINANCIAL SERVICES", "market_cap_category": "SMALL CAP", "market_cap_cr": 21000},
+        {"symbol": "SUZLON.NS", "name": "Suzlon Energy", "sector": "ENERGY", "market_cap_category": "SMALL CAP", "market_cap_cr": 74000},
+        {"symbol": "ANGELONE.NS", "name": "Angel One", "sector": "FINANCIAL SERVICES", "market_cap_category": "SMALL CAP", "market_cap_cr": 24000},
+        {"symbol": "RITES.NS", "name": "RITES Limited", "sector": "INDUSTRIALS", "market_cap_category": "SMALL CAP", "market_cap_cr": 16000}
     ]
     tasks = [asyncio.to_thread(get_ticker_quote_sync, item["symbol"]) for item in basket]
     quotes = await asyncio.gather(*tasks)
@@ -234,10 +263,19 @@ async def fetch_heatmap_data() -> List[Dict[str, Any]]:
     for item, data in zip(basket, quotes):
         results.append({
             "symbol": item["symbol"],
-            "name": data["name"],
+            "name": item["name"],
             "sector": item["sector"],
-            "change_percent": data["change_percent"],
-            "status": data["status"]
+            "market_cap_category": item["market_cap_category"],
+            "market_cap_cr": data.get("market_cap") or item["market_cap_cr"],
+            "current_price": data.get("current_price", 1000.0),
+            "change": data.get("change", 0.0),
+            "change_percent": data.get("change_percent", 0.0),
+            "week_52_high": data.get("week_52_high", 1200.0),
+            "week_52_low": data.get("week_52_low", 800.0),
+            "status": data.get("status", "CACHED"),
+            "data_status": data.get("status", "CACHED"),
+            "source": data.get("source", "yfinance"),
+            "timestamp": data.get("timestamp", int(time.time()))
         })
     return results
 

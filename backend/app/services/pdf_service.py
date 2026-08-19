@@ -3,11 +3,7 @@ import re
 import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
-try:
-    import pymupdf as fitz
-except ImportError:
-    import fitz
-
+import fitz  # PyMuPDF
 from fastapi import UploadFile, HTTPException, status
 
 # Directory configuration for local uploads

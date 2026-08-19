@@ -2,13 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   TrendingUp, Lock, Mail, User as UserIcon, ArrowRight, 
-  Eye, EyeOff, ShieldCheck, Github, Server, Globe, CheckCircle2, AlertCircle 
+  Eye, EyeOff, ShieldCheck, AlertCircle 
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
 const GoogleIcon = () => (
-  <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
+  <svg className="w-4 h-4 mr-2.5 shrink-0" viewBox="0 0 24 24">
     <path
       fill="#4285F4"
       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -133,45 +133,11 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+    <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
       <div className="absolute top-1/4 left-10 w-96 h-96 bg-cyan-600/15 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-10 right-10 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Top Connected Ecosystem Bar */}
-      <div className="w-full max-w-md flex flex-wrap items-center justify-between gap-2 mb-4 z-10 px-1">
-        <span className="text-[11px] font-mono text-slate-400">Stack Architecture</span>
-        <div className="flex items-center gap-2 text-xs">
-          <a
-            href="https://github.com/Madann06/stackgpt"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-[10px] font-mono"
-          >
-            <Github className="w-3 h-3 text-slate-400" />
-            <span>GitHub</span>
-          </a>
-          <a
-            href="https://stackgpt-backend.onrender.com/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-cyan-400 border border-slate-700 text-[10px] font-mono"
-          >
-            <Server className="w-3 h-3 text-cyan-400" />
-            <span>Render</span>
-          </a>
-          <a
-            href="https://stackgpt.vercel.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-800 text-slate-300 hover:text-blue-400 border border-slate-700 text-[10px] font-mono"
-          >
-            <Globe className="w-3 h-3 text-blue-400" />
-            <span>Vercel</span>
-          </a>
-        </div>
-      </div>
-
-      <div className="w-full max-w-md z-10 space-y-5">
+      <div className="w-full max-w-md z-10 space-y-6">
         <div className="flex items-center justify-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30 border border-cyan-400/30">
             <TrendingUp className="w-7 h-7 text-white" />
@@ -187,7 +153,7 @@ const Register = () => {
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-card rounded-3xl p-8 border border-slate-700/80 shadow-2xl space-y-5 bg-slate-900/90"
+          className="glass-card rounded-3xl p-8 border border-slate-700/80 shadow-2xl space-y-6 bg-slate-900/90"
         >
           <div className="text-center space-y-1">
             <h2 className="text-2xl font-bold text-slate-100">Create Account</h2>
@@ -236,7 +202,7 @@ const Register = () => {
 
           <form onSubmit={handleSubmit} className="space-y-3.5">
             {/* Full Name */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-300 block">Full Name</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -247,14 +213,14 @@ const Register = () => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Alex Vance"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all font-mono"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all font-mono"
                   required
                 />
               </div>
             </div>
 
             {/* Email */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-300 block">Email Address</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -265,7 +231,7 @@ const Register = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="analyst@financial.ai"
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all font-mono"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all font-mono"
                   required
                 />
               </div>
@@ -319,7 +285,7 @@ const Register = () => {
             </div>
 
             {/* Confirm Password */}
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-300 block">Confirm Password</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -352,7 +318,7 @@ const Register = () => {
             </button>
           </form>
 
-          <div className="text-center pt-1">
+          <div className="text-center pt-2">
             <p className="text-xs text-slate-400">
               Already have an account?{' '}
               <Link to="/login" className="font-bold text-cyan-400 hover:text-cyan-300 transition-colors">
@@ -367,5 +333,4 @@ const Register = () => {
 };
 
 export default Register;
-
 

@@ -26,6 +26,7 @@ from app.schemas.auth import (
     ForgotPasswordResponse
 )
 
+
 logger = logging.getLogger("stackgpt.auth")
 router = APIRouter()
 
@@ -176,6 +177,7 @@ def forgot_password(
     return {
         "message": "If an account exists for this email, password reset instructions have been generated."
     }
+<<<<<<< HEAD
 
 
 # =====================================================================
@@ -422,5 +424,4 @@ def facebook_oauth_callback(
     except Exception as exc:
         logger.exception(f"[Facebook OAuth] Callback error: {exc}")
         return RedirectResponse(url=f"{frontend_base}/login?error=Facebook+auth+failed")
-
 

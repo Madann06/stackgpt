@@ -89,36 +89,36 @@ const AIChatSection = ({ symbol = 'AAPL', selectedDocumentId = null }) => {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: 0.4 }}
-      className="glass-card rounded-2xl p-4 sm:p-6 border border-slate-700/60 shadow-xl space-y-4 sm:space-y-6"
+      className="glass-card rounded-2xl p-6 border border-slate-700/60 shadow-xl space-y-6"
     >
       {/* Top Header with Document Mode Toggle */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 sm:pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
-            <Bot className="w-4 h-4 sm:w-5 sm:h-5" />
+          <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+            <Bot className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+            <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
               AI Financial Analyst & Citation Engine
             </h2>
-            <p className="text-[11px] sm:text-xs text-slate-400">Ask natural language questions using documents, APIs, or web search</p>
+            <p className="text-xs text-slate-400">Ask natural language questions using uploaded documents, live APIs, or web search</p>
           </div>
         </div>
 
         {/* Document Mode Toggle Component */}
-        <div className="flex items-center sm:flex-col sm:items-end justify-between gap-1 bg-slate-900/60 p-2 sm:p-0 rounded-xl sm:bg-transparent">
-          <div className={`flex items-center gap-2 px-3 py-1 sm:py-1.5 rounded-xl border transition-all ${
+        <div className="flex flex-col sm:items-end gap-1">
+          <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border transition-all ${
             isDocumentMode 
-              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 shadow-md'
+              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 shadow-md shadow-emerald-500/10'
               : 'bg-slate-800/80 border-slate-700/80 text-slate-300'
           }`}>
             <span className="text-xs font-semibold flex items-center gap-1.5">
-              📄 Doc Mode
+              📄 Document Mode
             </span>
             <button
               type="button"
               onClick={() => setIsDocumentMode(!isDocumentMode)}
-              className={`px-2 py-0.5 rounded text-[10px] font-mono font-extrabold uppercase transition-all min-h-[28px] ${
+              className={`px-2.5 py-0.5 rounded text-[10px] font-mono font-extrabold uppercase transition-all ${
                 isDocumentMode
                   ? 'bg-emerald-500 text-slate-950 shadow-sm'
                   : 'bg-slate-700 text-slate-400 hover:text-white'
@@ -129,23 +129,22 @@ const AIChatSection = ({ symbol = 'AAPL', selectedDocumentId = null }) => {
           </div>
           <span className="text-[10px] font-mono font-medium">
             {isDocumentMode ? (
-              <span className="text-emerald-400 font-semibold">● Grounded in uploaded PDFs</span>
+              <span className="text-emerald-400 font-semibold">● Answers grounded in uploaded documents</span>
             ) : (
-              <span className="text-slate-400">● AI + APIs + Web Search</span>
+              <span className="text-slate-400">● General AI + financial APIs + web search</span>
             )}
           </span>
         </div>
       </div>
 
       {/* Quick Sample Questions */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs hide-scrollbar">
-        <span className="text-slate-500 font-mono font-medium text-[10px] shrink-0 uppercase">Samples:</span>
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        <span className="text-slate-500 font-mono font-medium text-[11px] shrink-0">Sample Questions:</span>
         {sampleQuestions.map((sq, idx) => (
           <button
             key={idx}
-            type="button"
             onClick={() => handleSendQuery(sq)}
-            className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-blue-600/20 hover:border-blue-500/40 text-slate-300 hover:text-blue-300 border border-slate-700/70 text-[11px] transition-colors shrink-0 font-medium min-h-[36px] flex items-center"
+            className="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-blue-600/20 hover:border-blue-500/40 text-slate-300 hover:text-blue-300 border border-slate-700 text-xs transition-colors shrink-0 font-medium"
           >
             {sq}
           </button>
@@ -153,40 +152,40 @@ const AIChatSection = ({ symbol = 'AAPL', selectedDocumentId = null }) => {
       </div>
 
       {/* Chat Messages Log */}
-      <div className="space-y-4 max-h-[450px] overflow-y-auto pr-1 hide-scrollbar">
+      <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
         {chatHistory.map((msg) => (
           <div key={msg.id} className="space-y-3">
             {msg.sender === 'user' ? (
-              <div className="flex items-start justify-end gap-2.5">
-                <div className="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none text-xs font-medium max-w-[85%] sm:max-w-lg shadow-md">
+              <div className="flex items-start justify-end gap-3">
+                <div className="bg-blue-600 text-white p-3.5 rounded-2xl rounded-tr-none text-xs font-medium max-w-lg shadow-md">
                   {msg.query}
                 </div>
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 mt-0.5">
-                  <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
+                  <User className="w-4 h-4" />
                 </div>
               </div>
             ) : (
-              <div className="flex items-start gap-2.5">
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shrink-0 border border-blue-400/40 shadow-md mt-0.5">
-                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shrink-0 border border-blue-400/40 shadow-md">
+                  <Sparkles className="w-4 h-4" />
                 </div>
 
-                <div className="bg-slate-900/90 border border-slate-700/80 p-3.5 sm:p-4 rounded-2xl rounded-tl-none space-y-2.5 text-xs max-w-[88%] sm:max-w-2xl flex-1 shadow-lg">
+                <div className="bg-slate-900/90 border border-slate-700/80 p-4 rounded-2xl rounded-tl-none space-y-3 text-xs max-w-2xl flex-1 shadow-lg">
                   {/* Mode Origin Indicator Badge */}
                   <div className="flex items-center justify-between pb-1 border-b border-slate-800/80">
                     {msg.document_mode ? (
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        📄 Answered from documents
+                        📄 Answered from your documents
                       </span>
                     ) : (
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1">
-                        🤖 AI + Live Market APIs
+                        🤖 Open AI + Market APIs & Web Search
                       </span>
                     )}
                   </div>
 
                   {/* AI Answer Text */}
-                  <div className="text-slate-200 leading-relaxed font-normal whitespace-pre-line text-[11px] sm:text-xs">
+                  <div className="text-slate-200 leading-relaxed font-normal whitespace-pre-line">
                     {msg.answer}
                   </div>
 
@@ -194,7 +193,7 @@ const AIChatSection = ({ symbol = 'AAPL', selectedDocumentId = null }) => {
                   {msg.sources && msg.sources.length > 0 && (
                     <div className="pt-2 border-t border-slate-800 space-y-1.5">
                       <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider font-mono flex items-center gap-1">
-                        <Globe className="w-3 h-3" /> Sources ({msg.sources.length})
+                        <Globe className="w-3.5 h-3.5" /> Retrieved Research Sources ({msg.sources.length})
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         {msg.sources.map((s, i) => (
@@ -209,7 +208,7 @@ const AIChatSection = ({ symbol = 'AAPL', selectedDocumentId = null }) => {
                               <span className="font-semibold text-slate-200 block truncate group-hover:text-blue-400 transition-colors">{s.title}</span>
                               <span className="text-[10px] font-mono text-slate-400">{s.source}</span>
                             </div>
-                            <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-blue-400 shrink-0" />
+                            <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-400 shrink-0" />
                           </a>
                         ))}
                       </div>
@@ -220,7 +219,7 @@ const AIChatSection = ({ symbol = 'AAPL', selectedDocumentId = null }) => {
                   {msg.citations && msg.citations.length > 0 && (
                     <div className="pt-2 border-t border-slate-800 space-y-1.5">
                       <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider font-mono flex items-center gap-1">
-                        <FileText className="w-3 h-3" /> Citations ({msg.citations.length})
+                        <FileText className="w-3.5 h-3.5" /> Document Citations ({msg.citations.length})
                       </span>
                       <div className="space-y-1">
                         {msg.citations.map((c, i) => (
@@ -240,11 +239,11 @@ const AIChatSection = ({ symbol = 'AAPL', selectedDocumentId = null }) => {
 
         {isLoading && (
           <div className="flex items-center gap-3 text-xs text-slate-400">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white animate-pulse">
-              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white animate-pulse">
+              <Sparkles className="w-4 h-4" />
             </div>
-            <span className="font-mono text-xs">
-              {isDocumentMode ? 'Searching vector documents...' : 'Executing AI research & live market APIs...'}
+            <span className="font-mono">
+              {isDocumentMode ? 'Searching ChromaDB vector documents...' : 'Executing open-ended research (Web search, Financial APIs & LLM)...'}
             </span>
           </div>
         )}
@@ -257,15 +256,13 @@ const AIChatSection = ({ symbol = 'AAPL', selectedDocumentId = null }) => {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSendQuery()}
-          placeholder={isDocumentMode ? `Ask about ${symbol} documents...` : `Ask any question about ${symbol}...`}
-          className="w-full pl-4 pr-12 py-3 bg-[#1E293B] border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-xs sm:text-sm font-sans min-h-[44px]"
+          placeholder={isDocumentMode ? `Ask about uploaded ${symbol} documents...` : `Ask any question about ${symbol} (e.g. Is it a good investment? Why did it move?)...`}
+          className="w-full pl-4 pr-12 py-3 bg-[#1E293B] border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm font-sans"
         />
         <button
-          type="button"
           onClick={() => handleSendQuery()}
           disabled={isLoading || !query.trim()}
-          aria-label="Send AI Query"
-          className="absolute right-1.5 p-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+          className="absolute right-2 p-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white transition-colors"
         >
           <Send className="w-4 h-4" />
         </button>

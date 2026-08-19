@@ -1,82 +1,130 @@
 import os
 import re
+import json
+import math
 import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-
-try:
-    import chromadb
-    from chromadb.config import Settings as ChromaSettings
-except ImportError:
-    chromadb = None
-    ChromaSettings = None
-
-try:
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-except ImportError:
-    RecursiveCharacterTextSplitter = None
-
+import requests
 from fastapi import HTTPException, status
 
-# Directory setup for persistent ChromaDB storage
+# Directory setup for persistent document chunk storage
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 CHROMA_DB_DIR = BASE_DIR / "chroma_db"
 CHROMA_DB_DIR.mkdir(parents=True, exist_ok=True)
-
-# Main Collection Name
-COLLECTION_NAME = "financial_reports"
-
-_chroma_client = None
-_collection = None
+CHUNKS_FILE = CHROMA_DB_DIR / "financial_chunks.json"
 
 
-def get_chroma_collection():
-    """Lazily initialize ChromaDB client and collection."""
-    global _chroma_client, _collection
-    if chromadb is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="ChromaDB vector database service is initializing or not installed."
-        )
-    if _collection is not None:
-        return _collection
+def recursive_character_split(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> List[str]:
+    """Pure-Python high performance text chunker without heavy LangChain dependencies."""
+    if not text:
+        return []
+    if len(text) <= chunk_size:
+        return [text]
 
-    _chroma_client = chromadb.PersistentClient(
-        path=str(CHROMA_DB_DIR),
-        settings=ChromaSettings(allow_reset=True, anonymized_telemetry=False)
-    )
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        if end >= len(text):
+            chunk = text[start:].strip()
+            if chunk:
+                chunks.append(chunk)
+            break
 
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    if openai_api_key and openai_api_key.startswith("sk-"):
-        try:
-            from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
-            embedding_fn = OpenAIEmbeddingFunction(
-                api_key=openai_api_key,
-                model_name="text-embedding-3-small"
-            )
-            _collection = _chroma_client.get_or_create_collection(
-                name=COLLECTION_NAME,
-                embedding_function=embedding_fn,
-                metadata={"hnsw:space": "cosine"}
-            )
-            return _collection
-        except Exception:
-            pass
+        # Break preferentially at paragraph, then sentence, then word
+        split_pos = text.rfind("\n\n", start, end)
+        if split_pos == -1 or split_pos <= start:
+            split_pos = text.rfind("\n", start, end)
+        if split_pos == -1 or split_pos <= start:
+            split_pos = text.rfind(". ", start, end)
+            if split_pos != -1:
+                split_pos += 1
+        if split_pos == -1 or split_pos <= start:
+            split_pos = text.rfind(" ", start, end)
+        if split_pos == -1 or split_pos <= start:
+            split_pos = end
 
-    # Fallback to SentenceTransformer embedding model
+        chunk = text[start:split_pos].strip()
+        if chunk:
+            chunks.append(chunk)
+        start = max(split_pos, start + chunk_size - chunk_overlap)
+
+    return chunks
+
+
+def compute_tf_vector(text: str) -> Dict[str, float]:
+    """Compute term frequency vector for token similarity."""
+    tokens = re.findall(r'\w+', text.lower())
+    if not tokens:
+        return {}
+    tf = {}
+    for t in tokens:
+        tf[t] = tf.get(t, 0.0) + 1.0
+    total = len(tokens)
+    return {k: v / total for k, v in tf.items()}
+
+
+def cosine_similarity_tf(v1: Dict[str, float], v2: Dict[str, float]) -> float:
+    """Compute cosine similarity between two term frequency dictionaries."""
+    intersection = set(v1.keys()) & set(v2.keys())
+    if not intersection:
+        return 0.0
+    dot_product = sum(v1[k] * v2[k] for k in intersection)
+    mag1 = math.sqrt(sum(v ** 2 for v in v1.values()))
+    mag2 = math.sqrt(sum(v ** 2 for v in v2.values()))
+    if mag1 == 0 or mag2 == 0:
+        return 0.0
+    return dot_product / (mag1 * mag2)
+
+
+def get_openai_embeddings(texts: List[str], api_key: str) -> Optional[List[List[float]]]:
+    """Fetch cloud embeddings from OpenAI API text-embedding-3-small (0 MB local RAM)."""
     try:
-        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-        embedding_fn = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+        url = "https://api.openai.com/v1/embeddings"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "text-embedding-3-small",
+            "input": texts[:20]  # batch limit
+        }
+        res = requests.post(url, headers=headers, json=payload, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            return [item["embedding"] for item in data.get("data", [])]
     except Exception:
-        from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
-        embedding_fn = DefaultEmbeddingFunction()
+        pass
+    return None
 
-    _collection = _chroma_client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        embedding_function=embedding_fn,
-        metadata={"hnsw:space": "cosine"}
-    )
-    return _collection
+
+def vector_cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
+    """Compute cosine similarity between two dense embedding vectors."""
+    dot = sum(a * b for a, b in zip(vec1, vec2))
+    mag1 = math.sqrt(sum(a * a for a in vec1))
+    mag2 = math.sqrt(sum(b * b for b in vec2))
+    if mag1 == 0 or mag2 == 0:
+        return 0.0
+    return dot / (mag1 * mag2)
+
+
+def _load_chunks_db() -> List[Dict[str, Any]]:
+    if not CHUNKS_FILE.exists():
+        return []
+    try:
+        with open(CHUNKS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _save_chunks_db(chunks: List[Dict[str, Any]]) -> None:
+    try:
+        with open(CHUNKS_FILE, "w", encoding="utf-8") as f:
+            json.dump(chunks, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[RAG Storage Warning] Could not write chunks file: {e}")
 
 
 class RAGService:
@@ -86,26 +134,15 @@ class RAGService:
         filename: str,
         pages_data: List[Dict[str, Any]]
     ) -> int:
-        """Chunk page text using RecursiveCharacterTextSplitter and store in ChromaDB with metadata."""
+        """Chunk page text and store in lightweight document store."""
         if not pages_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No page text content found in document to index."
             )
 
-        collection = get_chroma_collection()
-
-        # Initialize RecursiveCharacterTextSplitter (1000 char size, 200 char overlap)
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-            separators=["\n\n", "\n", " ", ""]
-        )
-
-        ids = []
-        documents = []
-        metadatas = []
-
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        new_chunks = []
         chunk_counter = 0
 
         for page in pages_data:
@@ -115,39 +152,42 @@ class RAGService:
             if not page_text or not page_text.strip():
                 continue
 
-            # Split page into chunks
-            chunks = text_splitter.split_text(page_text)
+            chunks = recursive_character_split(page_text, chunk_size=1000, chunk_overlap=200)
 
-            for idx, chunk_content in enumerate(chunks):
+            for chunk_content in chunks:
                 chunk_counter += 1
                 chunk_id = f"doc_{document_id}_p{page_num}_c{chunk_counter}_{uuid.uuid4().hex[:6]}"
 
-                ids.append(chunk_id)
-                documents.append(chunk_content)
-                metadatas.append({
+                new_chunks.append({
+                    "chunk_id": chunk_id,
                     "document_id": document_id,
                     "filename": filename,
                     "page_number": page_num,
-                    "chunk_id": chunk_id
+                    "content": chunk_content,
+                    "embedding": None
                 })
 
-        if not documents:
+        if not new_chunks:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to generate text chunks from document pages."
             )
 
-        # Delete any pre-existing chunks for this document before re-indexing
-        RAGService.delete_document_embeddings(document_id)
+        # Generate OpenAI embeddings if API key is provided
+        if openai_api_key and openai_api_key.startswith("sk-"):
+            texts_to_embed = [c["content"] for c in new_chunks]
+            embeddings = get_openai_embeddings(texts_to_embed, openai_api_key)
+            if embeddings:
+                for chunk_item, emb in zip(new_chunks, embeddings):
+                    chunk_item["embedding"] = emb
 
-        # Add chunks & metadata to ChromaDB
-        collection.add(
-            ids=ids,
-            documents=documents,
-            metadatas=metadatas
-        )
+        # Load existing DB, remove old chunks for this document, and append new
+        all_chunks = _load_chunks_db()
+        filtered = [c for c in all_chunks if c.get("document_id") != document_id]
+        filtered.extend(new_chunks)
+        _save_chunks_db(filtered)
 
-        return len(documents)
+        return len(new_chunks)
 
     @staticmethod
     def search_similarity(
@@ -155,54 +195,70 @@ class RAGService:
         top_k: int = 5,
         document_id: Optional[int] = None
     ) -> List[Dict[str, Any]]:
-        """Perform semantic similarity search in ChromaDB vector database."""
-        collection = get_chroma_collection()
+        """Perform semantic similarity search using dense vectors or term matching."""
+        all_chunks = _load_chunks_db()
+        if not all_chunks:
+            return []
 
-        where_filter = {}
         if document_id is not None:
-            where_filter = {"document_id": document_id}
+            candidates = [c for c in all_chunks if c.get("document_id") == document_id]
+        else:
+            candidates = all_chunks
 
-        try:
-            results = collection.query(
-                query_texts=[query],
-                n_results=top_k,
-                where=where_filter if where_filter else None,
-                include=["documents", "metadatas", "distances"]
-            )
+        if not candidates:
+            return []
 
-            formatted_results = []
-            if results and results.get("documents") and results["documents"][0]:
-                docs = results["documents"][0]
-                metas = results["metadatas"][0]
-                distances = results["distances"][0] if results.get("distances") else [0.0] * len(docs)
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        scored_results = []
 
-                for doc_text, meta, dist in zip(docs, metas, distances):
-                    # Cosine distance to similarity conversion
-                    similarity_score = round(1.0 - float(dist), 4) if dist is not None else 1.0
+        # Try dense vector search with OpenAI embeddings
+        query_embedding = None
+        if openai_api_key and openai_api_key.startswith("sk-"):
+            query_embs = get_openai_embeddings([query], openai_api_key)
+            if query_embs:
+                query_embedding = query_embs[0]
 
-                    formatted_results.append({
-                        "chunk_id": meta.get("chunk_id", ""),
-                        "document_id": meta.get("document_id", 0),
-                        "filename": meta.get("filename", ""),
-                        "page_number": meta.get("page_number", 1),
-                        "content": doc_text,
-                        "score": similarity_score
-                    })
+        if query_embedding:
+            for c in candidates:
+                if c.get("embedding"):
+                    score = vector_cosine_similarity(query_embedding, c["embedding"])
+                else:
+                    # Fallback to TF-IDF
+                    score = cosine_similarity_tf(compute_tf_vector(query), compute_tf_vector(c["content"]))
+                scored_results.append((score, c))
+        else:
+            query_tf = compute_tf_vector(query)
+            for c in candidates:
+                score = cosine_similarity_tf(query_tf, compute_tf_vector(c["content"]))
+                # Add partial string match bonus
+                if query.lower() in c["content"].lower():
+                    score += 0.2
+                scored_results.append((score, c))
 
-            return formatted_results
+        # Sort descending by similarity score
+        scored_results.sort(key=lambda x: x[0], reverse=True)
+        top_results = scored_results[:top_k]
 
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error querying vector database: {str(e)}"
-            )
+        formatted = []
+        for score, meta in top_results:
+            formatted.append({
+                "chunk_id": meta.get("chunk_id", ""),
+                "document_id": meta.get("document_id", 0),
+                "filename": meta.get("filename", ""),
+                "page_number": meta.get("page_number", 1),
+                "content": meta.get("content", ""),
+                "score": round(float(score), 4)
+            })
+
+        return formatted
 
     @staticmethod
     def delete_document_embeddings(document_id: int) -> bool:
-        """Delete all chunk embeddings associated with a document_id from ChromaDB."""
+        """Delete all chunk embeddings associated with a document_id."""
         try:
-            collection = get_chroma_collection()
-            collection.delete(where={"document_id": document_id})
+            all_chunks = _load_chunks_db()
+            filtered = [c for c in all_chunks if c.get("document_id") != document_id]
+            _save_chunks_db(filtered)
             return True
         except Exception:
             return False

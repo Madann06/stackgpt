@@ -1,10 +1,11 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.database.base import Base
-from app.database.session import engine, SessionLocal, check_db_connection
+from app.database.session import engine, SessionLocal
 from app.models.user import User
 from app.core.security import get_password_hash
 from app.api.v1.api import api_router
@@ -12,23 +13,26 @@ from app.api.v1.api import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """FastAPI lifespan to initialize database safely during startup without blocking imports."""
-    try:
-        Base.metadata.create_all(bind=engine)
-        with SessionLocal() as db:
-            demo_user = db.query(User).filter(User.email == "demo.analyst@stockai.com").first()
-            if not demo_user:
-                user = User(
-                    email="demo.analyst@stockai.com",
-                    full_name="Demo Analyst",
-                    hashed_password=get_password_hash("password123"),
-                    auth_provider="local",
-                    is_active=True
-                )
-                db.add(user)
-                db.commit()
-    except Exception as e:
-        print(f"[Database Startup Initialization Info] {e}")
+    """FastAPI lifespan for lightweight, non-blocking startup."""
+    is_prod = settings.ENVIRONMENT.lower() == "production" or bool(os.getenv("RENDER"))
+    if not is_prod:
+        # In local development, ensure tables exist safely
+        try:
+            Base.metadata.create_all(bind=engine)
+            with SessionLocal() as db:
+                demo_user = db.query(User).filter(User.email == "demo.analyst@stockai.com").first()
+                if not demo_user:
+                    user = User(
+                        email="demo.analyst@stockai.com",
+                        full_name="Demo Analyst",
+                        hashed_password=get_password_hash("password123"),
+                        auth_provider="local",
+                        is_active=True
+                    )
+                    db.add(user)
+                    db.commit()
+        except Exception as e:
+            print(f"[Local Dev DB Init] {e}")
     yield
 
 
@@ -60,7 +64,7 @@ app.add_middleware(
 # Include API v1 Router
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-# Direct alias for /api/pdf, /api/rag, /api/chat, /api/stock, /api/company routes
+# Direct aliases for endpoints
 from app.api.v1.endpoints import pdf, rag, chat, company
 app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF Processing (Alias)"])
 app.include_router(rag.router, prefix="/api/rag", tags=["RAG Vector Search (Alias)"])
@@ -69,42 +73,29 @@ app.include_router(company.router, prefix="/api/stock", tags=["Stock Analysis (A
 app.include_router(company.router, prefix="/api/company", tags=["Company Data (Alias)"])
 
 
+# =====================================================================
+# Lightweight Health Check & Root Endpoints
+# =====================================================================
+
 @app.get("/health", tags=["Health Check"])
 def health():
-    """Diagnostic health check endpoint verifying server & database connectivity."""
-    db_ok = check_db_connection()
-    return {
-        "status": "ok" if db_ok else "degraded",
-        "database": "connected" if db_ok else "disconnected",
-        "project": settings.PROJECT_NAME
-    }
+    """Immediate, zero-overhead health check for Render."""
+    return {"status": "ok", "service": "StackGPT Backend"}
 
 
 @app.get(f"{settings.API_V1_STR}/health", tags=["Health Check"])
 def api_v1_health():
-    """API v1 health check endpoint verifying database connectivity."""
-    db_ok = check_db_connection()
-    return {
-        "status": "ok" if db_ok else "degraded",
-        "database": "connected" if db_ok else "disconnected"
-    }
+    """Immediate, lightweight API v1 health check."""
+    return {"status": "ok"}
 
 
 @app.get("/", tags=["Health Check"])
 def root():
-    return {
-        "name": settings.PROJECT_NAME,
-        "status": "online",
-        "version": "1.0.0",
-        "health": "/health",
-        "docs_url": "/docs",
-        "api_v1": settings.API_V1_STR
-    }
+    """Immediate, lightweight root endpoint."""
+    return {"status": "ok", "service": "StackGPT Backend"}
 
 
 if __name__ == "__main__":
-    import os
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
-

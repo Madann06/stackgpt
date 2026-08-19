@@ -180,15 +180,6 @@ class LLMService:
             else:
                 if openai_api_key and openai_api_key.startswith("sk-"):
                     try:
-                        from langchain_openai import ChatOpenAI
-                        from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-
-                        llm = ChatOpenAI(
-                            model="gpt-4o-mini",
-                            temperature=0.1,
-                            openai_api_key=openai_api_key
-                        )
-
                         prompt_text = RAGService.build_rag_prompt(query, context_chunks)
                         sys_prompt = (
                             f"You are a Strict Financial Document Assistant for {symbol}. Answer the user's question ONLY using "
@@ -197,16 +188,25 @@ class LLMService:
                             "Do NOT invent facts or use external ungrounded knowledge."
                         )
 
-                        messages = [SystemMessage(content=sys_prompt)]
+                        messages = [{"role": "system", "content": sys_prompt}]
                         for h in conversation_history[-6:]:
                             role = h.get("role") or ("user" if h.get("sender") == "user" else "assistant")
                             content = h.get("content") or h.get("query") or h.get("answer") or ""
                             if content.strip():
-                                messages.append(HumanMessage(content=content) if role == "user" else AIMessage(content=content))
-                        messages.append(HumanMessage(content=prompt_text))
+                                messages.append({"role": role, "content": content})
+                        messages.append({"role": "user", "content": prompt_text})
 
-                        response = llm.invoke(messages)
-                        answer_text = response.content
+                        res = requests.post(
+                            "https://api.openai.com/v1/chat/completions",
+                            headers={"Authorization": f"Bearer {openai_api_key}", "Content-Type": "application/json"},
+                            json={"model": "gpt-4o-mini", "temperature": 0.1, "messages": messages},
+                            timeout=20
+                        )
+                        if res.status_code == 200:
+                            answer_text = res.json()["choices"][0]["message"]["content"]
+                        else:
+                            snippets = [f"[Page {c.get('page_number', 1)}]: {c['content']}" for c in context_chunks[:3]]
+                            answer_text = f"Based strictly on the uploaded report for {symbol}:\n\n" + "\n\n".join(snippets)
                     except Exception:
                         snippets = [f"[Page {c.get('page_number', 1)}]: {c['content']}" for c in context_chunks[:3]]
                         answer_text = f"Based strictly on the uploaded report for {symbol}:\n\n" + "\n\n".join(snippets)
@@ -247,72 +247,93 @@ class LLMService:
 
         if openai_api_key and openai_api_key.startswith("sk-"):
             try:
-                from langchain_openai import ChatOpenAI
-                from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
-
-                llm = ChatOpenAI(
-                    model="gpt-4o-mini",
-                    temperature=0.3,
-                    openai_api_key=openai_api_key
-                )
-                llm_with_tools = llm.bind_tools(cls.get_tool_definitions())
-
-                messages = [SystemMessage(content=sys_prompt)]
+                messages = [{"role": "system", "content": sys_prompt}]
                 for h in conversation_history[-6:]:
                     role = h.get("role") or ("user" if h.get("sender") == "user" else "assistant")
                     content = h.get("content") or h.get("query") or h.get("answer") or ""
                     if content.strip():
-                        messages.append(HumanMessage(content=content) if role == "user" else AIMessage(content=content))
+                        messages.append({"role": role, "content": content})
 
-                messages.append(HumanMessage(content=query))
+                messages.append({"role": "user", "content": query})
 
                 # Step 1: LLM Tool Selection Call
-                ai_msg = llm_with_tools.invoke(messages)
-
-                # Step 2: Handle Tool Calls requested by GPT
-                if hasattr(ai_msg, "tool_calls") and ai_msg.tool_calls:
-                    messages.append(ai_msg)
-                    for tool_call in ai_msg.tool_calls:
-                        t_name = tool_call["name"]
-                        t_args = tool_call["args"]
-                        tool_res = cls.execute_tool(t_name, t_args, symbol=symbol, document_id=None)
-
-                        if t_name == "get_financial_metrics":
-                            financial_data_used = True
-                            if tool_res.get("source"):
-                                sources.append(tool_res["source"])
-                        elif t_name == "search_web_news":
-                            web_search_used = True
-                            for item in tool_res.get("results", []):
-                                sources.append({
-                                    "title": item["title"],
-                                    "url": item["url"],
-                                    "source": item["source"],
-                                    "snippet": item.get("snippet")
-                                })
-
-                        messages.append(ToolMessage(
-                            content=json.dumps(tool_res),
-                            tool_call_id=tool_call["id"]
-                        ))
-
-                    # Step 3: LLM Final Natural Synthesis Call over Tool Outputs
-                    final_response = llm.invoke(messages)
-                    answer_text = final_response.content
-                else:
-                    answer_text = ai_msg.content
-
-                return {
-                    "query": query,
-                    "answer": answer_text,
-                    "citations": citations,
-                    "sources": sources,
-                    "financial_data_used": financial_data_used,
-                    "web_search_used": web_search_used,
-                    "document_mode": False
+                req_payload = {
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.3,
+                    "messages": messages,
+                    "tools": cls.get_tool_definitions(),
+                    "tool_choice": "auto"
                 }
+                res = requests.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {openai_api_key}", "Content-Type": "application/json"},
+                    json=req_payload,
+                    timeout=20
+                )
+
+                if res.status_code == 200:
+                    resp_data = res.json()
+                    choice = resp_data["choices"][0]
+                    ai_msg = choice["message"]
+
+                    # Step 2: Handle Tool Calls requested by GPT
+                    if ai_msg.get("tool_calls"):
+                        tool_messages = list(messages)
+                        tool_messages.append(ai_msg)
+
+                        for tool_call in ai_msg["tool_calls"]:
+                            t_name = tool_call["function"]["name"]
+                            raw_args = tool_call["function"].get("arguments", "{}")
+                            t_args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
+                            tool_res = cls.execute_tool(t_name, t_args, symbol=symbol, document_id=None)
+
+                            if t_name == "get_financial_metrics":
+                                financial_data_used = True
+                                if tool_res.get("source"):
+                                    sources.append(tool_res["source"])
+                            elif t_name == "search_web_news":
+                                web_search_used = True
+                                for item in tool_res.get("results", []):
+                                    sources.append({
+                                        "title": item["title"],
+                                        "url": item["url"],
+                                        "source": item["source"],
+                                        "snippet": item.get("snippet")
+                                    })
+
+                            tool_messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call["id"],
+                                "name": t_name,
+                                "content": json.dumps(tool_res)
+                            })
+
+                        # Step 3: LLM Final Natural Synthesis Call over Tool Outputs
+                        synth_res = requests.post(
+                            "https://api.openai.com/v1/chat/completions",
+                            headers={"Authorization": f"Bearer {openai_api_key}", "Content-Type": "application/json"},
+                            json={"model": "gpt-4o-mini", "temperature": 0.3, "messages": tool_messages},
+                            timeout=20
+                        )
+                        if synth_res.status_code == 200:
+                            answer_text = synth_res.json()["choices"][0]["message"]["content"]
+                        else:
+                            answer_text = ai_msg.get("content") or ""
+                    else:
+                        answer_text = ai_msg.get("content") or ""
+
+                    return {
+                        "query": query,
+                        "answer": answer_text,
+                        "citations": citations,
+                        "sources": sources,
+                        "financial_data_used": financial_data_used,
+                        "web_search_used": web_search_used,
+                        "document_mode": False
+                    }
             except Exception:
                 pass
+
 
         # ----------------------------------------------------
         # DYNAMIC TOOL RUNNER (Local Fallback Execution)

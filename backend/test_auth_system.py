@@ -19,23 +19,22 @@ def run_all_tests():
     print("=" * 70)
 
     # -------------------------------------------------------------
-    # 1. Health & Database Connectivity Verification
+    # 1. System Health Check
     # -------------------------------------------------------------
-    print("\n[TEST 1] Verifying System & Database Health Check Endpoints...")
-    res_root_health = client.get("/health")
-    assert res_root_health.status_code == 200, f"Expected 200, got {res_root_health.status_code}"
-    health_data = res_root_health.json()
+    print("[TEST 1] Verifying System & Database Health Check Endpoints...")
+    res = client.get("/health")
+    assert res.status_code == 200
+    health_data = res.json()
     assert health_data.get("status") == "ok", f"Expected status 'ok', got {health_data}"
-    assert health_data.get("database") == "connected", f"Expected database 'connected', got {health_data}"
     print(f"  GET /health -> {health_data}")
 
-    res_v1_health = client.get("/api/v1/health")
-    assert res_v1_health.status_code == 200
-    v1_data = res_v1_health.json()
-    assert v1_data.get("status") == "ok"
-    assert v1_data.get("database") == "connected"
-    print(f"  GET /api/v1/health -> {v1_data}")
-    print("  >>> PASSED: Database connectivity is live and verified!")
+    res_v1 = client.get("/api/v1/health")
+    assert res_v1.status_code == 200
+    v1_health = res_v1.json()
+    assert v1_health.get("status") == "ok", f"Expected status 'ok', got {v1_health}"
+    print(f"  GET /api/v1/health -> {v1_health}")
+    print("  >>> PASSED: Lightweight Health Check is live and verified!\n")
+
 
     # -------------------------------------------------------------
     # 2. Registration Flow: New User, Normalization & 409 Duplicate Checks

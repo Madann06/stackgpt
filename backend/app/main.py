@@ -90,6 +90,36 @@ def api_v1_health():
     return {"status": "ok"}
 
 
+@app.get(f"{settings.API_V1_STR}/db-check", tags=["Health Check"])
+def api_v1_db_check():
+    """Diagnostic endpoint to expose database connection & table status."""
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        
+        with SessionLocal() as db:
+            user_count = db.query(User).count()
+            
+        return {
+            "status": "ok",
+            "database_connected": True,
+            "user_table_exists": True,
+            "total_users": user_count,
+            "db_url_scheme": engine.url.drivername
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "database_connected": False,
+            "error_type": type(e).__name__,
+            "error_details": str(e),
+            "traceback": traceback.format_exc()
+        }
+
+
+
 @app.get("/", tags=["Health Check"])
 def root():
     """Immediate, lightweight root endpoint."""

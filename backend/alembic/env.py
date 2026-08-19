@@ -21,7 +21,12 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+alembic_db_url = settings.DATABASE_URL or "sqlite:///./sql_app.db"
+if alembic_db_url.startswith("postgres://"):
+    alembic_db_url = alembic_db_url.replace("postgres://", "postgresql://", 1)
+
+config.set_main_option("sqlalchemy.url", alembic_db_url)
+
 
 
 def run_migrations_offline() -> None:

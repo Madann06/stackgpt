@@ -105,17 +105,23 @@ const Login = () => {
         setError('Invalid email or password.');
       }
     } catch (err) {
+      const status = err.response?.status;
       const detail = err.response?.data?.detail;
-      if (err.response?.status === 401) {
+      if (status === 401) {
         setError('Invalid email or password.');
-      } else if (typeof detail === 'string') {
+      } else if (status === 404 || detail === 'Not Found') {
+        setError('Authentication service route not found. Please check backend server.');
+      } else if (typeof detail === 'string' && detail !== 'Not Found') {
         setError(detail);
+      } else if (err.message && err.message.includes('Network Error')) {
+        setError('Unable to connect to StackGPT backend server. Please verify your connection.');
       } else {
         setError('Unable to sign in. Please check your connection or credentials.');
       }
     } finally {
       setIsLoading(false);
     }
+
   };
 
   const handleGoogleClick = async () => {

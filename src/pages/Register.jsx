@@ -103,6 +103,8 @@ const Register = () => {
       if (status === 409) {
         setIsDuplicate(true);
         setError('This email is already registered. Sign in instead.');
+      } else if (status === 404 || detail === 'Not Found') {
+        setError('Registration service route not found. Please check backend server.');
       } else if (status === 422) {
         if (Array.isArray(detail)) {
           const firstMsg = detail[0]?.msg || 'Validation failed. Please verify input fields.';
@@ -110,14 +112,17 @@ const Register = () => {
         } else {
           setError(typeof detail === 'string' ? detail : 'Invalid registration data submitted.');
         }
-      } else if (typeof detail === 'string') {
+      } else if (typeof detail === 'string' && detail !== 'Not Found') {
         setError(detail);
+      } else if (err.message && err.message.includes('Network Error')) {
+        setError('Unable to connect to StackGPT backend. Please verify your connection.');
       } else {
         setError('Registration failed. Please verify your connection or try again later.');
       }
     } finally {
       setIsLoading(false);
     }
+
   };
 
   const handleGoogleSignUp = async () => {

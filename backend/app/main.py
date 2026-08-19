@@ -64,13 +64,16 @@ app.add_middleware(
 # Include API v1 Router
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-# Direct aliases for endpoints
-from app.api.v1.endpoints import pdf, rag, chat, company
+# Direct aliases for endpoints (ensures frontend requests never 404)
+from app.api.v1.endpoints import auth, pdf, rag, chat, company
+app.include_router(auth.router, prefix="/auth", tags=["Authentication (Alias)"])
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication (Alias)"])
 app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF Processing (Alias)"])
 app.include_router(rag.router, prefix="/api/rag", tags=["RAG Vector Search (Alias)"])
 app.include_router(chat.router, prefix="/api/chat", tags=["AI Chat QA (Alias)"])
 app.include_router(company.router, prefix="/api/stock", tags=["Stock Analysis (Alias)"])
 app.include_router(company.router, prefix="/api/company", tags=["Company Data (Alias)"])
+
 
 
 # =====================================================================

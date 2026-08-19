@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { 
   TrendingUp, Sparkles, Lock, Mail, ArrowRight, 
-  ShieldCheck, Cpu, Zap, Eye, EyeOff, Github, Server, Globe, ExternalLink, CheckCircle2
+  ShieldCheck, Cpu, Zap, Eye, EyeOff, Github, Server, Globe, ExternalLink, AlertCircle
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { API_BASE_URL } from '../services/api';
+import { stockApi } from '../services/stockApi';
 
 const GoogleIcon = () => (
-  <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
+  <svg className="w-4 h-4 mr-2.5 shrink-0" viewBox="0 0 24 24">
     <path
       fill="#4285F4"
       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -29,6 +29,12 @@ const GoogleIcon = () => (
   </svg>
 );
 
+const FacebookIcon = () => (
+  <svg className="w-4 h-4 mr-2.5 shrink-0" fill="#1877F2" viewBox="0 0 24 24">
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+  </svg>
+);
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,27 +42,53 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
-  const [customGoogleEmail, setCustomGoogleEmail] = useState('');
-  const [customGoogleName, setCustomGoogleName] = useState('');
+  const [isOAuthLoading, setIsOAuthLoading] = useState(false);
+  const [providers, setProviders] = useState({ google: false, facebook: false });
 
-  const { login, loginWithGoogle, register } = useAuth();
+  const { login, loginWithGoogle, loginWithFacebook, handleOAuthToken, register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
-  // Redirect back to intended protected page or default to /dashboard
+  // Target path for authenticated redirect
   const from = location.state?.from?.pathname || '/dashboard';
+
+  // Handle OAuth callback token / error in URL query
+  useEffect(() => {
+    const oauthToken = searchParams.get('token');
+    const oauthError = searchParams.get('error');
+
+    if (oauthError) {
+      setError(oauthError.replace(/\+/g, ' '));
+    } else if (oauthToken) {
+      setIsOAuthLoading(true);
+      handleOAuthToken(oauthToken).then((success) => {
+        setIsOAuthLoading(false);
+        if (success) {
+          navigate(from, { replace: true });
+        } else {
+          setError('Failed to authenticate OAuth token. Please try again.');
+        }
+      });
+    }
+
+    // Check third-party OAuth provider availability
+    stockApi.getAuthProviders().then((res) => {
+      if (res) setProviders(res);
+    });
+  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!email.trim()) {
-      setError('Please enter your email.');
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setError('Please enter your email address.');
       return;
     }
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      setError('Please enter a valid email.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setError('Please enter a valid email address.');
       return;
     }
     if (!password) {
@@ -66,38 +98,45 @@ const Login = () => {
 
     setIsLoading(true);
     try {
-      const result = await login(email, password);
+      const result = await login(cleanEmail, password);
       if (result) {
         navigate(from, { replace: true });
       } else {
         setError('Invalid email or password.');
       }
     } catch (err) {
-      const msg = err.response?.data?.detail || 'Unable to sign in. Please verify your credentials or use Google / Demo login.';
-      setError(typeof msg === 'string' ? msg : 'Authentication failed.');
+      const detail = err.response?.data?.detail;
+      if (err.response?.status === 401) {
+        setError('Invalid email or password.');
+      } else if (typeof detail === 'string') {
+        setError(detail);
+      } else {
+        setError('Unable to sign in. Please check your connection or credentials.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async (gEmail, gName) => {
+  const handleGoogleClick = async () => {
     setError('');
-    setIsLoading(true);
-    setIsGoogleModalOpen(false);
+    setIsOAuthLoading(true);
     try {
-      const targetEmail = gEmail || 'analyst.google@gmail.com';
-      const targetName = gName || targetEmail.split('@')[0].replace('.', ' ').toUpperCase();
-      
-      await loginWithGoogle({
-        email: targetEmail,
-        name: targetName,
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
-      });
-      navigate(from, { replace: true });
+      await loginWithGoogle();
     } catch (e) {
-      setError('Google Sign-In failed. Please try again.');
-    } finally {
-      setIsLoading(false);
+      setError('Failed to initiate Google sign-in.');
+      setIsOAuthLoading(false);
+    }
+  };
+
+  const handleFacebookClick = async () => {
+    setError('');
+    setIsOAuthLoading(true);
+    try {
+      await loginWithFacebook();
+    } catch (e) {
+      setError('Facebook login is currently not available.');
+      setIsOAuthLoading(false);
     }
   };
 
@@ -112,7 +151,7 @@ const Login = () => {
       }
       navigate(from, { replace: true });
     } catch (e) {
-      setError('Demo account ready. Click below to continue.');
+      setError('Demo analyst login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -223,8 +262,8 @@ const Login = () => {
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-200">FastAPI JWT & Google OAuth</h3>
-                <p className="text-xs text-slate-400">Bcrypt password hashing, Bearer JWT tokens, and instant Google authentication.</p>
+                <h3 className="text-sm font-bold text-slate-200">FastAPI JWT & Google OAuth 2.0</h3>
+                <p className="text-xs text-slate-400">Bcrypt password hashing, Bearer JWT tokens, and Google authentication.</p>
               </div>
             </div>
           </div>
@@ -239,31 +278,48 @@ const Login = () => {
         >
           <div className="text-center lg:text-left space-y-1">
             <h2 className="text-2xl font-bold text-slate-100">Welcome Back</h2>
-            <p className="text-xs text-slate-400">Access your AI Stock Research workspace</p>
+            <p className="text-xs text-slate-400">Sign in to your account</p>
           </div>
 
           {error && (
-            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium text-center">
-              {error}
+            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium text-center flex items-center justify-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
-          {/* Google Sign In Button */}
-          <button
-            type="button"
-            onClick={() => setIsGoogleModalOpen(true)}
-            disabled={isLoading}
-            className="w-full py-3 px-4 bg-white hover:bg-slate-100 disabled:opacity-50 text-slate-800 font-semibold rounded-xl border border-slate-300 shadow-md transition-all flex items-center justify-center text-sm font-sans"
-          >
-            <GoogleIcon />
-            <span>Continue with Google</span>
-          </button>
+          {/* Third-Party OAuth Actions */}
+          <div className="space-y-2.5">
+            {/* Google Sign In Button */}
+            <button
+              type="button"
+              onClick={handleGoogleClick}
+              disabled={isLoading || isOAuthLoading}
+              className="w-full py-3 px-4 bg-white hover:bg-slate-100 disabled:opacity-50 text-slate-800 font-semibold rounded-xl border border-slate-300 shadow-md transition-all flex items-center justify-center text-sm font-sans"
+            >
+              <GoogleIcon />
+              <span>{isOAuthLoading ? 'Connecting to Google...' : 'Continue with Google'}</span>
+            </button>
+
+            {/* Optional Facebook Sign In Button */}
+            {providers.facebook && (
+              <button
+                type="button"
+                onClick={handleFacebookClick}
+                disabled={isLoading || isOAuthLoading}
+                className="w-full py-3 px-4 bg-[#1877F2] hover:bg-[#166FE5] disabled:opacity-50 text-white font-semibold rounded-xl border border-[#1877F2] shadow-md transition-all flex items-center justify-center text-sm font-sans"
+              >
+                <FacebookIcon />
+                <span>Continue with Facebook</span>
+              </button>
+            )}
+          </div>
 
           {/* Divider */}
           <div className="relative flex items-center justify-center">
             <div className="border-t border-slate-800 w-full" />
             <span className="bg-[#0F172A] px-3 text-[11px] font-mono text-slate-500 uppercase tracking-wider absolute">
-              OR EMAIL SIGN IN
+              OR
             </span>
           </div>
 
@@ -291,7 +347,7 @@ const Login = () => {
               <div className="flex justify-between items-center">
                 <label className="text-xs font-semibold text-slate-300 block">Password</label>
                 <Link to="/forgot-password" className="text-xs font-medium text-cyan-400 hover:text-cyan-300 transition-colors">
-                  Forgot Password?
+                  Forgot password?
                 </Link>
               </div>
               <div className="relative">
@@ -332,7 +388,7 @@ const Login = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || isOAuthLoading}
               className="w-full py-3.5 px-4 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-cyan-600/30 transition-all flex items-center justify-center gap-2 group text-sm"
             >
               {isLoading ? (
@@ -350,7 +406,7 @@ const Login = () => {
             <p className="text-xs text-slate-400">
               Don't have an account?{' '}
               <Link to="/register" className="font-bold text-cyan-400 hover:text-cyan-300 transition-colors">
-                Create Account
+                Create account
               </Link>
             </p>
           </div>
@@ -359,7 +415,7 @@ const Login = () => {
           <button
             type="button"
             onClick={handleQuickDemo}
-            disabled={isLoading}
+            disabled={isLoading || isOAuthLoading}
             className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 font-semibold rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-2 text-xs"
           >
             <Sparkles className="w-4 h-4 text-cyan-400" /> One-Click Demo Analyst Access
@@ -367,80 +423,10 @@ const Login = () => {
         </motion.div>
 
       </div>
-
-      {/* Interactive Google Sign-In Selection Modal */}
-      <AnimatePresence>
-        {isGoogleModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-[#1E293B] border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-5 text-slate-100"
-            >
-              <div className="text-center space-y-1.5">
-                <div className="w-12 h-12 mx-auto rounded-2xl bg-white flex items-center justify-center shadow-md">
-                  <GoogleIcon />
-                </div>
-                <h3 className="text-lg font-bold text-slate-100">Sign in with Google</h3>
-                <p className="text-xs text-slate-400">Choose a Google account to continue to StackGPT</p>
-              </div>
-
-              {/* Instant Verified Profiles */}
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => handleGoogleSignIn('analyst.google@gmail.com', 'Google Portfolio Analyst')}
-                  className="w-full p-3 rounded-2xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 flex items-center gap-3 transition-all text-left"
-                >
-                  <img
-                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80"
-                    alt="Google Account"
-                    className="w-10 h-10 rounded-full border border-cyan-500/40"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-100 truncate">Google Portfolio Analyst</p>
-                    <p className="text-[11px] text-slate-400 font-mono truncate">analyst.google@gmail.com</p>
-                  </div>
-                  <CheckCircle2 className="w-4 h-4 text-cyan-400" />
-                </button>
-              </div>
-
-              {/* Custom Google Email Input */}
-              <div className="space-y-2 pt-2 border-t border-slate-700">
-                <label className="text-[11px] font-semibold text-slate-300 block">Or enter another Google email:</label>
-                <input
-                  type="email"
-                  placeholder="your.name@gmail.com"
-                  value={customGoogleEmail}
-                  onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-cyan-500 font-mono"
-                />
-                <button
-                  type="button"
-                  disabled={!customGoogleEmail.includes('@')}
-                  onClick={() => handleGoogleSignIn(customGoogleEmail, customGoogleName)}
-                  className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-bold rounded-xl text-xs transition-all"
-                >
-                  Continue with this Account
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsGoogleModalOpen(false)}
-                className="w-full py-2 text-xs text-slate-400 hover:text-slate-200 transition-colors"
-              >
-                Cancel
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
     </div>
   );
 };
 
 export default Login;
+
 

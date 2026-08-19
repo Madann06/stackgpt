@@ -15,6 +15,28 @@ class GoogleLoginRequest(BaseModel):
     token: Optional[str] = None
 
 
+class GoogleTokenRequest(BaseModel):
+    id_token: Optional[str] = None
+    access_token: Optional[str] = None
+    code: Optional[str] = None
+
+
+class FacebookTokenRequest(BaseModel):
+    access_token: Optional[str] = None
+    code: Optional[str] = None
+
+
+class OAuthUrlResponse(BaseModel):
+    url: str
+    provider: str
+
+
+class AuthProvidersResponse(BaseModel):
+    google: bool
+    facebook: bool
+    google_client_id: Optional[str] = None
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -31,3 +53,4 @@ class ForgotPasswordRequest(BaseModel):
 
 class ForgotPasswordResponse(BaseModel):
     message: str
+

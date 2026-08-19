@@ -14,10 +14,13 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     id: int
+    is_active: bool = True
+    auth_provider: Optional[str] = "local"
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class UserInDB(UserResponse):
-    hashed_password: str
+    hashed_password: Optional[str] = None
+

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.database.base import Base
-from app.database.session import engine, SessionLocal
+from app.database.session import engine, SessionLocal, check_db_connection
 from app.models.user import User
 from app.core.security import get_password_hash
 from app.api.v1.api import api_router
@@ -20,6 +20,7 @@ try:
                 email="demo.analyst@stockai.com",
                 full_name="Demo Analyst",
                 hashed_password=get_password_hash("password123"),
+                auth_provider="local",
                 is_active=True
             )
             db.add(user)
@@ -39,6 +40,8 @@ app = FastAPI(
 
 # Configure CORS Middleware
 cors_origins = [str(origin).rstrip("/") for origin in settings.BACKEND_CORS_ORIGINS]
+if settings.FRONTEND_URL and settings.FRONTEND_URL.rstrip("/") not in cors_origins:
+    cors_origins.append(settings.FRONTEND_URL.rstrip("/"))
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,14 +66,23 @@ app.include_router(company.router, prefix="/api/company", tags=["Company Data (A
 
 @app.get("/health", tags=["Health Check"])
 def health():
-    """Simple health-check endpoint for Render / cloud monitoring."""
-    return {"status": "ok", "project": settings.PROJECT_NAME}
+    """Diagnostic health check endpoint verifying server & database connectivity."""
+    db_ok = check_db_connection()
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "database": "connected" if db_ok else "disconnected",
+        "project": settings.PROJECT_NAME
+    }
 
 
 @app.get(f"{settings.API_V1_STR}/health", tags=["Health Check"])
 def api_v1_health():
-    """API v1 health check endpoint."""
-    return {"status": "ok"}
+    """API v1 health check endpoint verifying database connectivity."""
+    db_ok = check_db_connection()
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "database": "connected" if db_ok else "disconnected"
+    }
 
 
 @app.get("/", tags=["Health Check"])
@@ -83,6 +95,7 @@ def root():
         "docs_url": "/docs",
         "api_v1": settings.API_V1_STR
     }
+
 
 
 if __name__ == "__main__":

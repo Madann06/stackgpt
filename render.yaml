@@ -3,15 +3,26 @@ services:
     name: stackgpt-backend
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && alembic upgrade head
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.10.12
+      - key: ENVIRONMENT
+        value: production
+      - key: FRONTEND_URL
+        value: https://stackgpt.vercel.app
       - key: DATABASE_URL
-        value: sqlite:///./sql_app.db
+        sync: false
       - key: BACKEND_CORS_ORIGINS
-        value: https://stackgpt.vercel.app,http://localhost:5173,http://localhost:3000
+        value: https://stackgpt.vercel.app,https://stackgpt-backend.onrender.com,http://localhost:5173,http://localhost:3000
       - key: SECRET_KEY
         generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://stackgpt-backend.onrender.com/api/v1/auth/google/callback
+

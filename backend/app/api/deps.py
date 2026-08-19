@@ -29,13 +29,20 @@ def get_current_user(
         raise credentials_exception
 
     user = None
-    if subject.isdigit():
+    if str(subject).isdigit():
         user = db.query(User).filter(User.id == int(subject)).first()
     if not user:
-        user = db.query(User).filter(User.email == subject).first()
+        user = db.query(User).filter(User.email == str(subject).strip().lower()).first()
 
     if not user:
         raise credentials_exception
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Inactive user account.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return user
 
@@ -53,10 +60,13 @@ def get_current_user_optional(
             return None
 
         user = None
-        if subject.isdigit():
+        if str(subject).isdigit():
             user = db.query(User).filter(User.id == int(subject)).first()
         if not user:
-            user = db.query(User).filter(User.email == subject).first()
+            user = db.query(User).filter(User.email == str(subject).strip().lower()).first()
+        if user and not user.is_active:
+            return None
         return user
     except Exception:
         return None
+

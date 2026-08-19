@@ -7,14 +7,15 @@ from app.core.config import settings
 ALGORITHM = "HS256"
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plain password against a hashed password."""
+def verify_password(plain_password: Optional[str], hashed_password: Optional[str]) -> bool:
+    """Verify a plain password against a hashed password safely."""
     try:
-        if not plain_password or not hashed_password:
+        if not plain_password or not hashed_password or not isinstance(hashed_password, str):
             return False
         return bcrypt.checkpw(plain_password.encode('utf-8')[:72], hashed_password.encode('utf-8'))
     except Exception:
         return False
+
 
 
 def get_password_hash(password: str) -> str:

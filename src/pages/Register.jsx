@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   TrendingUp, Lock, Mail, User as UserIcon, ArrowRight, 
-  Eye, EyeOff, ShieldCheck, Github, Server, Globe, ExternalLink, CheckCircle2 
+  Eye, EyeOff, ShieldCheck, Github, Server, Globe, CheckCircle2, AlertCircle 
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
 const GoogleIcon = () => (
@@ -35,27 +35,43 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isDuplicate, setIsDuplicate] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
-  const [customGoogleEmail, setCustomGoogleEmail] = useState('');
-  const [customGoogleName, setCustomGoogleName] = useState('');
 
   const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
+  // Password strength calculation
+  const passwordStrength = useMemo(() => {
+    if (!password) return { score: 0, label: '', color: 'bg-slate-700' };
+    let score = 0;
+    if (password.length >= 6) score += 1;
+    if (password.length >= 8) score += 1;
+    if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
+    if (/\d/.test(password) || /[^A-Za-z0-9]/.test(password)) score += 1;
+
+    if (score <= 1) return { score: 1, label: 'Weak', color: 'bg-rose-500', text: 'text-rose-400' };
+    if (score === 2 || score === 3) return { score: 2, label: 'Moderate', color: 'bg-amber-500', text: 'text-amber-400' };
+    return { score: 3, label: 'Strong', color: 'bg-emerald-500', text: 'text-emerald-400' };
+  }, [password]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsDuplicate(false);
 
-    if (!fullName.trim()) {
+    const cleanName = fullName.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanName) {
       setError('Please enter your full name.');
       return;
     }
-    if (!email.trim()) {
-      setError('Please enter your email.');
+    if (!cleanEmail) {
+      setError('Please enter your email address.');
       return;
     }
-    if (!/\S+@\S+\.\S+/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       setError('Please enter a valid email address.');
       return;
     }
@@ -74,37 +90,44 @@ const Register = () => {
 
     setIsLoading(true);
     try {
-      const result = await register(fullName, email, password);
+      const result = await register(cleanName, cleanEmail, password);
       if (result) {
         navigate('/dashboard', { replace: true });
       } else {
-        setError('Registration failed. Please try again.');
+        setError('Registration succeeded but automated login failed. Please sign in.');
       }
     } catch (err) {
-      const msg = err.response?.data?.detail || 'An account with this email already exists or registration is unavailable.';
-      setError(typeof msg === 'string' ? msg : 'Registration failed.');
+      const status = err.response?.status;
+      const detail = err.response?.data?.detail;
+
+      if (status === 409) {
+        setIsDuplicate(true);
+        setError('This email is already registered. Sign in instead.');
+      } else if (status === 422) {
+        if (Array.isArray(detail)) {
+          const firstMsg = detail[0]?.msg || 'Validation failed. Please verify input fields.';
+          setError(firstMsg);
+        } else {
+          setError(typeof detail === 'string' ? detail : 'Invalid registration data submitted.');
+        }
+      } else if (typeof detail === 'string') {
+        setError(detail);
+      } else {
+        setError('Registration failed. Please verify your connection or try again later.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSignUp = async (gEmail, gName) => {
+  const handleGoogleSignUp = async () => {
     setError('');
+    setIsDuplicate(false);
     setIsLoading(true);
-    setIsGoogleModalOpen(false);
     try {
-      const targetEmail = gEmail || 'analyst.google@gmail.com';
-      const targetName = gName || targetEmail.split('@')[0].replace('.', ' ').toUpperCase();
-      
-      await loginWithGoogle({
-        email: targetEmail,
-        name: targetName,
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
-      });
-      navigate('/dashboard', { replace: true });
+      await loginWithGoogle();
     } catch (e) {
-      setError('Google Sign-Up failed. Please try again.');
-    } finally {
+      setError('Google Sign-Up failed to initialize.');
       setIsLoading(false);
     }
   };
@@ -172,15 +195,31 @@ const Register = () => {
           </div>
 
           {error && (
-            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium text-center">
-              {error}
+            <div className={`p-3.5 rounded-xl border text-xs font-medium text-center flex items-center justify-center gap-2 ${
+              isDuplicate
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                : 'bg-red-500/10 border-red-500/30 text-red-400'
+            }`}>
+              {isDuplicate ? (
+                <div className="flex flex-col items-center gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-400" />
+                    <span>This email is already registered.</span>
+                  </div>
+                  <Link to="/login" className="font-bold text-cyan-400 hover:text-cyan-300 underline mt-0.5">
+                    Sign in instead →
+                  </Link>
+                </div>
+              ) : (
+                <span>{error}</span>
+              )}
             </div>
           )}
 
-          {/* Google Sign-Up Button */}
+          {/* Google Sign-Up Button (Real OAuth) */}
           <button
             type="button"
-            onClick={() => setIsGoogleModalOpen(true)}
+            onClick={handleGoogleSignUp}
             disabled={isLoading}
             className="w-full py-3 px-4 bg-white hover:bg-slate-100 disabled:opacity-50 text-slate-800 font-semibold rounded-xl border border-slate-300 shadow-md transition-all flex items-center justify-center text-sm font-sans"
           >
@@ -234,7 +273,14 @@ const Register = () => {
 
             {/* Password */}
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-300 block">Password</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-300 block">Password</label>
+                {password && (
+                  <span className={`text-[10px] font-bold ${passwordStrength.text}`}>
+                    Strength: {passwordStrength.label}
+                  </span>
+                )}
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Lock className="w-4 h-4" />
@@ -243,7 +289,7 @@ const Register = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder="Min. 6 characters"
                   className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all font-mono"
                   required
                 />
@@ -255,6 +301,21 @@ const Register = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+
+              {/* Password Strength Meter Bar */}
+              {password && (
+                <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1.5 flex gap-1">
+                  <div className={`h-full rounded-full transition-all duration-300 ${
+                    passwordStrength.score >= 1 ? passwordStrength.color : 'bg-slate-700'
+                  } w-1/3`} />
+                  <div className={`h-full rounded-full transition-all duration-300 ${
+                    passwordStrength.score >= 2 ? passwordStrength.color : 'bg-slate-700'
+                  } w-1/3`} />
+                  <div className={`h-full rounded-full transition-all duration-300 ${
+                    passwordStrength.score >= 3 ? passwordStrength.color : 'bg-slate-700'
+                  } w-1/3`} />
+                </div>
+              )}
             </div>
 
             {/* Confirm Password */}
@@ -268,7 +329,7 @@ const Register = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder="Repeat your password"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all font-mono"
                   required
                 />
@@ -279,7 +340,7 @@ const Register = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-cyan-600/30 transition-all flex items-center justify-center gap-2 group text-sm"
+              className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-cyan-600/30 transition-all flex items-center justify-center gap-2 group text-sm mt-2"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -301,86 +362,10 @@ const Register = () => {
           </div>
         </motion.div>
       </div>
-
-      {/* Interactive Google Sign-In Selection Modal */}
-      <AnimatePresence>
-        {isGoogleModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-[#1E293B] border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-5 text-slate-100"
-            >
-              <div className="text-center space-y-1.5">
-                <div className="w-12 h-12 mx-auto rounded-2xl bg-white flex items-center justify-center shadow-md">
-                  <GoogleIcon />
-                </div>
-                <h3 className="text-lg font-bold text-slate-100">Sign up with Google</h3>
-                <p className="text-xs text-slate-400">Connect your Google account instantly</p>
-              </div>
-
-              {/* Instant Verified Profiles */}
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => handleGoogleSignUp('analyst.google@gmail.com', 'Google Portfolio Analyst')}
-                  className="w-full p-3 rounded-2xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 flex items-center gap-3 transition-all text-left"
-                >
-                  <img
-                    src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80"
-                    alt="Google Account"
-                    className="w-10 h-10 rounded-full border border-cyan-500/40"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-100 truncate">Google Portfolio Analyst</p>
-                    <p className="text-[11px] text-slate-400 font-mono truncate">analyst.google@gmail.com</p>
-                  </div>
-                  <CheckCircle2 className="w-4 h-4 text-cyan-400" />
-                </button>
-              </div>
-
-              {/* Custom Google Email Input */}
-              <div className="space-y-2 pt-2 border-t border-slate-700">
-                <label className="text-[11px] font-semibold text-slate-300 block">Or use your Google email:</label>
-                <input
-                  type="text"
-                  placeholder="Your Full Name"
-                  value={customGoogleName}
-                  onChange={(e) => setCustomGoogleName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-cyan-500 font-sans mb-1"
-                />
-                <input
-                  type="email"
-                  placeholder="your.name@gmail.com"
-                  value={customGoogleEmail}
-                  onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-cyan-500 font-mono"
-                />
-                <button
-                  type="button"
-                  disabled={!customGoogleEmail.includes('@')}
-                  onClick={() => handleGoogleSignUp(customGoogleEmail, customGoogleName)}
-                  className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-bold rounded-xl text-xs transition-all mt-1"
-                >
-                  Create with this Account
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsGoogleModalOpen(false)}
-                className="w-full py-2 text-xs text-slate-400 hover:text-slate-200 transition-colors"
-              >
-                Cancel
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
 
 export default Register;
+
 

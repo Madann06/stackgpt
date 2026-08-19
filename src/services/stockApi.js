@@ -2,18 +2,45 @@ import api from './api';
 import { MOCK_STOCKS, MOCK_NEWS, MARKET_INDICES } from '../data/mockStockData';
 
 export const stockApi = {
-  // 1. Authentication APIs
+  // 1. Authentication & Health APIs
+  async getHealth() {
+    const res = await api.get('/health');
+    return res.data;
+  },
+
+  async getAuthProviders() {
+    try {
+      const res = await api.get('/auth/providers');
+      return res.data;
+    } catch (e) {
+      return { google: false, facebook: false, google_client_id: '' };
+    }
+  },
+
+  async getGoogleAuthUrl() {
+    const res = await api.get('/auth/google/url');
+    return res.data;
+  },
+
+  async getFacebookAuthUrl() {
+    const res = await api.get('/auth/facebook/url');
+    return res.data;
+  },
+
   async register(fullName, email, password) {
     const res = await api.post('/auth/register', {
-      full_name: fullName,
-      email,
+      full_name: fullName.trim(),
+      email: email.trim().toLowerCase(),
       password,
     });
     return res.data;
   },
 
   async login(email, password) {
-    const res = await api.post('/auth/login', { email, password });
+    const res = await api.post('/auth/login', {
+      email: email.trim().toLowerCase(),
+      password
+    });
     if (res.data && res.data.access_token) {
       localStorage.setItem('token', res.data.access_token);
     }
@@ -21,25 +48,11 @@ export const stockApi = {
   },
 
   async googleLogin(userData) {
-    try {
-      const res = await api.post('/auth/google', userData);
-      if (res.data && res.data.access_token) {
-        localStorage.setItem('token', res.data.access_token);
-      }
-      return res.data;
-    } catch (e) {
-      // Fallback for demo / offline resilience
-      const fallbackToken = 'google_session_' + Date.now();
-      localStorage.setItem('token', fallbackToken);
-      return {
-        access_token: fallbackToken,
-        user: {
-          id: 99,
-          email: userData.email,
-          full_name: userData.name || 'Google User',
-        }
-      };
+    const res = await api.post('/auth/google', userData);
+    if (res.data && res.data.access_token) {
+      localStorage.setItem('token', res.data.access_token);
     }
+    return res.data;
   },
 
   async logout() {
@@ -49,11 +62,12 @@ export const stockApi = {
       // Ignore network errors on logout
     } finally {
       localStorage.removeItem('token');
+      localStorage.removeItem('user_profile');
     }
   },
 
   async forgotPassword(email) {
-    const res = await api.post('/auth/forgot-password', { email });
+    const res = await api.post('/auth/forgot-password', { email: email.trim().toLowerCase() });
     return res.data;
   },
 
@@ -61,6 +75,7 @@ export const stockApi = {
     const res = await api.get('/auth/me');
     return res.data;
   },
+
 
   // 2. Company Stock Market APIs
   async searchStocks(query) {

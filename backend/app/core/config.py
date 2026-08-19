@@ -1,16 +1,30 @@
-from typing import List, Union
+from typing import List, Union, Optional
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "AI Stock Research Assistant Backend"
+    PROJECT_NAME: str = "StackGPT - AI Financial Intelligence Platform"
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = "ai-stock-research-assistant-super-secret-key-change-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     
+    # Environment & Deployment
+    ENVIRONMENT: str = "development"
+    FRONTEND_URL: str = "http://localhost:5173"
+
     # Database
     DATABASE_URL: str = "sqlite:///./sql_app.db"
+
+    # Google OAuth 2.0 Settings
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_REDIRECT_URI: Optional[str] = None
+
+    # Facebook OAuth Settings (Optional)
+    FACEBOOK_CLIENT_ID: Optional[str] = None
+    FACEBOOK_CLIENT_SECRET: Optional[str] = None
+    FACEBOOK_REDIRECT_URI: Optional[str] = None
 
     # CORS
     BACKEND_CORS_ORIGINS: Union[List[str], str] = [
@@ -35,3 +49,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+

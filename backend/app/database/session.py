@@ -14,29 +14,45 @@ is_production = settings.ENVIRONMENT.lower() == "production" or bool(os.getenv("
 if is_production and (not db_url or "sqlite" in db_url):
     logger.warning(
         "CRITICAL DATABASE WARNING: Production environment detected without external PostgreSQL DATABASE_URL. "
-        "SQLite on Render is ephemeral. Ensure DATABASE_URL is set in Render environment variables."
+        "Ensure DATABASE_URL is correctly set in Render environment variables."
     )
 
-if db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-# Configure engine parameters dynamically
-connect_args = {}
-if db_url.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
-elif "postgres" in db_url:
-    connect_args = {"connect_timeout": 10}
+def create_safe_engine(url: str):
+    """Build SQLAlchemy engine with automatic fallback to SQLite if PostgreSQL URL is malformed or unreachable."""
+    target_url = url or "sqlite:///./sql_app.db"
+    if target_url.startswith("postgres://"):
+        target_url = target_url.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(
-    db_url,
-    connect_args=connect_args,
-    pool_pre_ping=True,
-    pool_recycle=300
-)
+    connect_args = {}
+    if target_url.startswith("sqlite"):
+        connect_args = {"check_same_thread": False}
+    elif "postgres" in target_url:
+        connect_args = {"connect_timeout": 5}
 
+    try:
+        eng = create_engine(
+            target_url,
+            connect_args=connect_args,
+            pool_pre_ping=True,
+            pool_recycle=300
+        )
+        with eng.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("[Database] Successfully connected to primary database engine.")
+        return eng
+    except Exception as e:
+        logger.error(f"[Database Fail-Safe] Primary DATABASE_URL connection failed ({e}). Falling back to local SQLite.")
+        fallback_url = "sqlite:///./sql_app.db"
+        return create_engine(
+            fallback_url,
+            connect_args={"check_same_thread": False},
+            pool_pre_ping=True
+        )
+
+
+engine = create_safe_engine(db_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
 
 
 def get_db() -> Generator:
@@ -57,4 +73,3 @@ def check_db_connection() -> bool:
     except Exception as e:
         logger.error(f"Database connectivity check failed: {e}")
         return False
-

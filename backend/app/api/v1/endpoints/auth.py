@@ -188,6 +188,12 @@ def forgot_password(
 def get_google_auth_url() -> Any:
     """Build and return the official Google OAuth 2.0 authorization URL."""
     client_id = settings.GOOGLE_CLIENT_ID or ""
+    if not client_id or not settings.GOOGLE_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Google OAuth is not configured on the backend. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Render environment variables."
+        )
+    
     redirect_uri = settings.GOOGLE_REDIRECT_URI or f"{settings.FRONTEND_URL.rstrip('/')}/api/v1/auth/google/callback"
     
     params = {
@@ -200,6 +206,7 @@ def get_google_auth_url() -> Any:
     }
     url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
     return {"url": url, "provider": "google"}
+
 
 
 @router.get("/google/callback", tags=["Google OAuth"])

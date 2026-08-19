@@ -130,10 +130,16 @@ const Login = () => {
     try {
       await loginWithGoogle();
     } catch (e) {
-      setError('Failed to initiate Google sign-in.');
+      const detail = e.response?.data?.detail;
+      if (e.response?.status === 501 || (typeof detail === 'string' && detail.includes('Google OAuth'))) {
+        setError('Google OAuth is not configured yet. Please add GOOGLE_CLIENT_ID on Render, or sign in with email/password below.');
+      } else {
+        setError('Failed to initiate Google sign-in. Please sign in with email/password.');
+      }
       setIsOAuthLoading(false);
     }
   };
+
 
   const handleFacebookClick = async () => {
     setError('');

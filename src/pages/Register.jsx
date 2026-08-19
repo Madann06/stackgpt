@@ -132,10 +132,16 @@ const Register = () => {
     try {
       await loginWithGoogle();
     } catch (e) {
-      setError('Google Sign-Up failed to initialize.');
+      const detail = e.response?.data?.detail;
+      if (e.response?.status === 501 || (typeof detail === 'string' && detail.includes('Google OAuth'))) {
+        setError('Google OAuth is not configured yet. Please add GOOGLE_CLIENT_ID on Render, or register with email/password below.');
+      } else {
+        setError('Google Sign-Up failed to initialize. Please register with email/password.');
+      }
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">

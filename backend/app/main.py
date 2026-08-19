@@ -13,27 +13,25 @@ from app.api.v1.api import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """FastAPI lifespan for lightweight, non-blocking startup."""
-    is_prod = settings.ENVIRONMENT.lower() == "production" or bool(os.getenv("RENDER"))
-    if not is_prod:
-        # In local development, ensure tables exist safely
-        try:
-            Base.metadata.create_all(bind=engine)
-            with SessionLocal() as db:
-                demo_user = db.query(User).filter(User.email == "demo.analyst@stockai.com").first()
-                if not demo_user:
-                    user = User(
-                        email="demo.analyst@stockai.com",
-                        full_name="Demo Analyst",
-                        hashed_password=get_password_hash("password123"),
-                        auth_provider="local",
-                        is_active=True
-                    )
-                    db.add(user)
-                    db.commit()
-        except Exception as e:
-            print(f"[Local Dev DB Init] {e}")
+    """FastAPI lifespan to initialize database safely during startup without blocking imports."""
+    try:
+        Base.metadata.create_all(bind=engine)
+        with SessionLocal() as db:
+            demo_user = db.query(User).filter(User.email == "demo.analyst@stockai.com").first()
+            if not demo_user:
+                user = User(
+                    email="demo.analyst@stockai.com",
+                    full_name="Demo Analyst",
+                    hashed_password=get_password_hash("password123"),
+                    auth_provider="local",
+                    is_active=True
+                )
+                db.add(user)
+                db.commit()
+    except Exception as e:
+        print(f"[Database Startup Table Initialization Info] {e}")
     yield
+
 
 
 app = FastAPI(
